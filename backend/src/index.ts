@@ -1,22 +1,24 @@
+import http from 'http';
 import { createApp } from './app.js';
 import { config } from './config/env.js';
-import { errorHandler, notFoundHandler } from './middleware/error.middleware.js';
+import { wsHub } from './lib/websocket.js';
 
 const app = createApp();
+const server = http.createServer(app);
 
-// Mount fallback 404 & error handlers
-app.use(notFoundHandler);
-app.use(errorHandler);
+// Initialize WebSocket hub on the HTTP server
+wsHub.initialize(server);
 
-const server = app.listen(config.PORT, () => {
+server.listen(config.PORT, () => {
   console.log(`[API Server] Running on http://localhost:${config.PORT} (env: ${config.NODE_ENV})`);
+  console.log(`[WebSocket] Listening for live connections on ws://localhost:${config.PORT}/ws`);
 });
 
 // Graceful server shutdown
 const handleShutdown = (signal: string) => {
   console.log(`[API Server] Received ${signal}. Starting graceful shutdown...`);
   server.close(() => {
-    console.log('[API Server] Closed HTTP server connections.');
+    console.log('[API Server] Closed HTTP and WebSocket server connections.');
     process.exit(0);
   });
 };

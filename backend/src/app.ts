@@ -7,6 +7,8 @@ import { retryPolicyRoutes } from './routes/retry-policy.routes.js';
 import { queueRoutes } from './routes/queue.routes.js';
 import { jobRoutes } from './routes/job.routes.js';
 import { cronRoutes } from './routes/cron.routes.js';
+import { metricsRoutes } from './routes/metrics.routes.js';
+import { workerRoutes } from './routes/worker.routes.js';
 import { ApiResponse } from '@scheduler/shared';
 
 export const createApp = (): Application => {
@@ -37,6 +39,8 @@ export const createApp = (): Application => {
   app.use('/api/v1/queues', queueRoutes);
   app.use('/api/v1/jobs', jobRoutes);
   app.use('/api/v1/scheduled-jobs', cronRoutes);
+  app.use('/api/v1/metrics', metricsRoutes);
+  app.use('/api/v1/workers', workerRoutes);
 
   // Fallback 404 & Error handlers
   app.use(notFoundHandler);
