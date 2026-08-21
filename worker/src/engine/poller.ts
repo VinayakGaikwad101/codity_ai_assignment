@@ -1,5 +1,5 @@
 import { prisma } from '../lib/prisma.js';
-import { Job, JobStatus } from '@scheduler/shared';
+import { Prisma } from '@prisma/client';
 
 export interface ClaimedJobWithMeta {
   id: string;
@@ -29,7 +29,11 @@ export class JobPoller {
    * Atomically claims up to `limit` ready jobs using PostgreSQL `SELECT ... FOR UPDATE SKIP LOCKED`.
    * Also verifies that DAG parent dependencies (if any) are fully COMPLETED before claiming.
    */
-  static async claimJobs(workerId: string, limit: number): Promise<ClaimedJobWithMeta[]> {
+  static async claimJobs(
+    workerId: string,
+    limit: number,
+    queueId?: string
+  ): Promise<ClaimedJobWithMeta[]> {
     if (limit <= 0) return [];
 
     try {
@@ -42,6 +46,7 @@ export class JobPoller {
           WHERE q.is_paused = FALSE
             AND j.status IN ('QUEUED', 'SCHEDULED')
             AND j.run_at <= NOW()
+            AND (${queueId ? Prisma.sql`j.queue_id = ${queueId}::uuid` : Prisma.sql`TRUE`})
             AND (
               NOT EXISTS (
                 SELECT 1

@@ -26,5 +26,8 @@
     "react"
   ],
   "author": "Vinayak Gaikwad",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "vitest": "^4.1.11"
+  }
 }
