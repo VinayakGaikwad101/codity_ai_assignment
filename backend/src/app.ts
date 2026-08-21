@@ -1,6 +1,7 @@
 import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware.js';
+import { authRoutes } from './routes/auth.routes.js';
 import { ApiResponse } from '@scheduler/shared';
 
 export const createApp = (): Application => {
@@ -24,8 +25,8 @@ export const createApp = (): Application => {
     res.status(200).json(response);
   });
 
-  // Global 404 handler (will be placed after routes)
-  // Global Error handler will be attached in router mounting
+  // Mount API route modules
+  app.use('/api/v1/auth', authRoutes);
 
   return app;
 };
