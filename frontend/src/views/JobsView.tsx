@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   PlayCircle,
   Terminal,
+  Sparkles,
   X,
 } from 'lucide-react';
 
@@ -19,6 +20,8 @@ export const JobsView: React.FC = () => {
   const [queues, setQueues] = useState<any[]>([]);
   const [selectedJob, setSelectedJob] = useState<any | null>(null);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [aiSummary, setAiSummary] = useState<any | null>(null);
+  const [loadingAi, setLoadingAi] = useState(false);
 
   // Filters
   const [statusFilter, setStatusFilter] = useState('');
@@ -63,10 +66,23 @@ export const JobsView: React.FC = () => {
 
   const handleInspectJob = async (id: string) => {
     try {
+      setAiSummary(null);
       const res: any = await apiClient.get(`/jobs/${id}`);
       setSelectedJob(res.data);
     } catch (err) {
       console.error('Failed to fetch job details:', err);
+    }
+  };
+
+  const handleFetchAiSummary = async (id: string) => {
+    setLoadingAi(true);
+    try {
+      const res: any = await apiClient.get(`/jobs/${id}/ai-summary`);
+      setAiSummary(res.data);
+    } catch (err) {
+      console.error('Failed to fetch AI failure summary:', err);
+    } finally {
+      setLoadingAi(false);
     }
   };
 
@@ -347,9 +363,9 @@ export const JobsView: React.FC = () => {
         </div>
       </div>
 
-      {/* Selected Job Drawer */}
+      {/* Selected Job Drawer / Inspection Modal */}
       {selectedJob && (
-        <div className="fixed inset-y-0 right-0 w-full md:w-[540px] bg-slate-900 border-l border-slate-800 z-50 p-6 overflow-y-auto shadow-2xl flex flex-col justify-between">
+        <div className="fixed inset-y-0 right-0 w-full md:w-[560px] bg-slate-900 border-l border-slate-800 z-50 p-6 overflow-y-auto shadow-2xl flex flex-col justify-between">
           <div className="space-y-6">
             <div className="flex items-start justify-between">
               <div>
@@ -388,6 +404,44 @@ export const JobsView: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {/* AI Failure Summary Trigger for Failed/DLQ jobs */}
+            {(selectedJob.status === 'FAILED' || selectedJob.status === 'DEAD_LETTERED') && (
+              <div className="p-3.5 rounded-xl bg-purple-950/20 border border-purple-500/30 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2 text-purple-300 font-semibold text-xs">
+                    <Sparkles className="w-4 h-4 text-purple-400" />
+                    <span>AI Failure Root-Cause Diagnosis</span>
+                  </div>
+                  {!aiSummary && (
+                    <button
+                      onClick={() => handleFetchAiSummary(selectedJob.id)}
+                      disabled={loadingAi}
+                      className="px-2.5 py-1 rounded bg-purple-600 hover:bg-purple-500 text-white text-xs font-medium transition-colors"
+                    >
+                      {loadingAi ? 'Analyzing...' : 'Generate Analysis'}
+                    </button>
+                  )}
+                </div>
+
+                {aiSummary && (
+                  <div className="text-xs space-y-2 pt-2 border-t border-purple-500/20">
+                    <div className="font-medium text-slate-200">{aiSummary.summary}</div>
+                    <div className="p-2 rounded bg-slate-950/80 font-mono text-[11px] text-purple-300 border border-purple-500/20">
+                      Category: {aiSummary.rootCauseCategory}
+                    </div>
+                    <div>
+                      <div className="font-semibold text-slate-400 mb-1">Recommended Fix Actions:</div>
+                      <ul className="list-disc pl-4 space-y-0.5 text-slate-300">
+                        {aiSummary.suggestedActions?.map((act: string, idx: number) => (
+                          <li key={idx}>{act}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Payload Viewer */}
             <div>

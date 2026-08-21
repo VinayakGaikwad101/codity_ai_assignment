@@ -1,5 +1,6 @@
 import { Response, NextFunction } from 'express';
 import { JobService } from '../services/job.service.js';
+import { AiSummaryService } from '../services/ai-summary.service.js';
 import { AuthenticatedRequest } from '../types/auth.types.js';
 import {
   CreateJobSchema,
@@ -165,6 +166,26 @@ export class JobController {
       const response: ApiResponse = {
         success: true,
         data: replayed,
+      };
+      res.status(200).json(response);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getAiFailureSummary(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+    try {
+      const id = req.params.id as string;
+      const organizationId = req.user?.organizationId || req.apiKey?.organizationId;
+      if (!organizationId) {
+        res.status(400).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Organization context missing' } });
+        return;
+      }
+
+      const summary = await AiSummaryService.generateFailureSummary(id, organizationId);
+      const response: ApiResponse = {
+        success: true,
+        data: summary,
       };
       res.status(200).json(response);
     } catch (error) {

@@ -16,8 +16,9 @@ router.get('/', JobController.list);
 router.get('/dlq', JobController.listDlq);
 router.post('/dlq/:id/replay', requireRole([UserRole.ADMIN, UserRole.OPERATOR]), JobController.replayDlq);
 
-// Single Job operations
+// Single Job operations & AI diagnostics
 router.get('/:id', JobController.getById);
+router.get('/:id/ai-summary', JobController.getAiFailureSummary);
 router.post('/:id/retry', requireRole([UserRole.ADMIN, UserRole.OPERATOR]), JobController.retry);
 router.post('/:id/cancel', requireRole([UserRole.ADMIN, UserRole.OPERATOR]), JobController.cancel);
 
