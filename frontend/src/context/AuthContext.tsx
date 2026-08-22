@@ -25,6 +25,7 @@ interface AuthContextType {
   currentProject: Project | null;
   setCurrentProject: (proj: Project) => void;
   login: (email: string, pass: string) => Promise<void>;
+  register: (name: string, email: string, pass: string, orgName: string) => Promise<void>;
   logout: () => void;
   refreshProjects: () => Promise<void>;
   isLoading: boolean;
@@ -46,13 +47,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   const refreshProjects = async () => {
-    if (!token) return;
+    const storedToken = localStorage.getItem('djs_auth_token');
+    if (!storedToken) return;
     try {
       const data = await apiRequest<Project[]>('/projects');
       setProjects(data);
-      if (data.length > 0 && !currentProject) {
-        setCurrentProject(data[0]);
-        localStorage.setItem('djs_current_project', JSON.stringify(data[0]));
+      if (data.length > 0) {
+        // If current project not set or doesn't belong to current projects list
+        const exists = data.find((p) => p.id === currentProject?.id);
+        if (!exists) {
+          setCurrentProject(data[0]);
+          localStorage.setItem('djs_current_project', JSON.stringify(data[0]));
+        }
       }
     } catch (e) {
       console.error('Failed to fetch projects:', e);
@@ -63,6 +69,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const res = await apiRequest<{ user: User; token: string }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password: pass }),
+    });
+
+    setUser(res.user);
+    setToken(res.token);
+    localStorage.setItem('djs_user', JSON.stringify(res.user));
+    localStorage.setItem('djs_auth_token', res.token);
+
+    const projs = await apiRequest<Project[]>('/projects', {
+      headers: { Authorization: `Bearer ${res.token}` },
+    });
+    setProjects(projs);
+    if (projs.length > 0) {
+      setCurrentProject(projs[0]);
+      localStorage.setItem('djs_current_project', JSON.stringify(projs[0]));
+    }
+  };
+
+  const register = async (name: string, email: string, pass: string, orgName: string) => {
+    const res = await apiRequest<{ user: User; token: string }>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        name,
+        email,
+        password: pass,
+        organizationName: orgName,
+      }),
     });
 
     setUser(res.user);
@@ -92,20 +124,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const init = async () => {
-      // Auto-login with seeded admin if first run
-      if (!token) {
-        try {
-          await login('admin@acme.com', 'Admin@12345');
-        } catch (e) {
-          console.warn('Initial admin auto-login bypassed:', e);
-        }
-      } else {
+      if (token) {
         await refreshProjects();
       }
       setIsLoading(false);
     };
     init();
-  }, []);
+  }, [token]);
 
   return (
     <AuthContext.Provider
@@ -119,6 +144,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           localStorage.setItem('djs_current_project', JSON.stringify(proj));
         },
         login,
+        register,
         logout,
         refreshProjects,
         isLoading,

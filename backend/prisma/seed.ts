@@ -45,7 +45,19 @@ async function main() {
       role: UserRole.OPERATOR,
     },
   });
-  console.log(`[Seed] Created users: ${admin.email}, ${operator.email}`);
+
+  const viewer = await prisma.user.upsert({
+    where: { email: 'viewer@acme.com' },
+    update: { passwordHash },
+    create: {
+      organizationId: org.id,
+      email: 'viewer@acme.com',
+      name: 'Auditor & Viewer',
+      passwordHash,
+      role: UserRole.VIEWER,
+    },
+  });
+  console.log(`[Seed] Created users: ${admin.email} (ADMIN), ${operator.email} (OPERATOR), ${viewer.email} (VIEWER)`);
 
   // 3. Create Project
   const project = await prisma.project.upsert({
