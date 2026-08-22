@@ -19,10 +19,6 @@ export class RetryPolicyService {
       },
     });
 
-    if (existing) {
-      throw new AppError('A retry policy with this name already exists in this project', 409, 'RETRY_POLICY_EXISTS');
-    }
-
     return prisma.retryPolicy.create({
       data: {
         projectId: dto.projectId,
@@ -39,47 +35,53 @@ export class RetryPolicyService {
 
   static async list(organizationId: string, projectId?: string) {
     if (projectId) {
-      const count = await prisma.retryPolicy.count({
-        where: { projectId },
+      const validProject = await prisma.project.findFirst({
+        where: { id: projectId, organizationId },
       });
 
-      if (count === 0) {
-        // Auto-provision 3 standard policies for this project
-        await prisma.retryPolicy.createMany({
-          data: [
-            {
-              projectId,
-              name: 'Standard Exponential Backoff',
-              strategy: RetryStrategy.EXPONENTIAL,
-              maxRetries: 3,
-              initialIntervalMs: 1000,
-              maxIntervalMs: 30000,
-              backoffMultiplier: 2.0,
-              useJitter: true,
-            },
-            {
-              projectId,
-              name: 'Linear Backoff Retry',
-              strategy: RetryStrategy.LINEAR,
-              maxRetries: 4,
-              initialIntervalMs: 2000,
-              maxIntervalMs: 15000,
-              backoffMultiplier: 1.0,
-              useJitter: false,
-            },
-            {
-              projectId,
-              name: 'Fixed 5-Second Delay',
-              strategy: RetryStrategy.FIXED,
-              maxRetries: 2,
-              initialIntervalMs: 5000,
-              maxIntervalMs: 5000,
-              backoffMultiplier: 1.0,
-              useJitter: false,
-            },
-          ],
-          skipDuplicates: true,
+      if (validProject) {
+        const count = await prisma.retryPolicy.count({
+          where: { projectId },
         });
+
+        if (count === 0) {
+          // Auto-provision 3 standard policies for this project
+          await prisma.retryPolicy.createMany({
+            data: [
+              {
+                projectId,
+                name: 'Standard Exponential Backoff',
+                strategy: RetryStrategy.EXPONENTIAL,
+                maxRetries: 3,
+                initialIntervalMs: 1000,
+                maxIntervalMs: 30000,
+                backoffMultiplier: 2.0,
+                useJitter: true,
+              },
+              {
+                projectId,
+                name: 'Linear Backoff Retry',
+                strategy: RetryStrategy.LINEAR,
+                maxRetries: 4,
+                initialIntervalMs: 2000,
+                maxIntervalMs: 15000,
+                backoffMultiplier: 1.0,
+                useJitter: false,
+              },
+              {
+                projectId,
+                name: 'Fixed 5-Second Delay',
+                strategy: RetryStrategy.FIXED,
+                maxRetries: 2,
+                initialIntervalMs: 5000,
+                maxIntervalMs: 5000,
+                backoffMultiplier: 1.0,
+                useJitter: false,
+              },
+            ],
+            skipDuplicates: true,
+          });
+        }
       }
     }
 
