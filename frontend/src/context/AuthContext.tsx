@@ -46,6 +46,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
+  const logout = () => {
+    setUser(null);
+    setToken(null);
+    setProjects([]);
+    setCurrentProject(null);
+    localStorage.removeItem('djs_user');
+    localStorage.removeItem('djs_auth_token');
+    localStorage.removeItem('djs_current_project');
+  };
+
   const refreshProjects = async () => {
     const storedToken = localStorage.getItem('djs_auth_token');
     if (!storedToken) return;
@@ -54,13 +64,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setProjects(data);
       if (data.length > 0) {
         const exists = data.find((p) => p.id === currentProject?.id);
-        if (!exists) {
+        if (exists) {
+          setCurrentProject(exists);
+        } else {
           setCurrentProject(data[0]);
           localStorage.setItem('djs_current_project', JSON.stringify(data[0]));
         }
+      } else {
+        // No projects belong to this old session's organization (stale database wipe)
+        logout();
       }
-    } catch (e) {
-      console.error('Failed to fetch projects:', e);
+    } catch (e: any) {
+      console.error('Failed to fetch projects, clearing stale session:', e);
+      logout();
     }
   };
 
@@ -110,16 +126,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCurrentProject(projs[0]);
       localStorage.setItem('djs_current_project', JSON.stringify(projs[0]));
     }
-  };
-
-  const logout = () => {
-    setUser(null);
-    setToken(null);
-    setProjects([]);
-    setCurrentProject(null);
-    localStorage.removeItem('djs_user');
-    localStorage.removeItem('djs_auth_token');
-    localStorage.removeItem('djs_current_project');
   };
 
   useEffect(() => {
