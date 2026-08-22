@@ -531,6 +531,45 @@
           }
         }
       ]
+    },
+    {
+      "name": "08-DeadLetterQueue",
+      "item": [
+        {
+          "name": "01. List Dead Letter Queue (DLQ) Quarantined Jobs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/jobs/dlq",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs", "dlq"]
+            }
+          }
+        },
+        {
+          "name": "02. Replay Dead Lettered Job",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/jobs/dlq/{{dlqId}}/replay",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs", "dlq", "{{dlqId}}", "replay"]
+            }
+          }
+        }
+      ]
     }
   ],
   "variable": [
@@ -562,6 +601,11 @@
     {
       "key": "jobId",
       "value": "13aecf42-e22e-47ea-9655-854386d46b2d",
+      "type": "string"
+    },
+    {
+      "key": "dlqId",
+      "value": "",
       "type": "string"
     }
   ]
