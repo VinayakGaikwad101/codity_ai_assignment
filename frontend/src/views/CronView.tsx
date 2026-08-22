@@ -13,6 +13,8 @@ import {
   Play,
   Pause,
   AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { toast } from 'sonner';
@@ -22,6 +24,8 @@ export const CronView: React.FC = () => {
 
   const [schedules, setSchedules] = useState<any[]>([]);
   const [queues, setQueues] = useState<any[]>([]);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(8);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -38,20 +42,22 @@ export const CronView: React.FC = () => {
     payloadText: '{\n  "checkDatabase": true\n}',
   });
 
-  // Delete Confirmation Modal State (No browser alert)
+  // Delete Confirmation Modal State
   const [scheduleToDelete, setScheduleToDelete] = useState<{ id: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const fetchSchedules = async (showToast = false) => {
+  const fetchSchedules = async (showToast = false, showLoader = false) => {
     if (!currentProject) return;
+    if (showLoader) setIsLoading(true);
+
     try {
       const [schedRes, queuesRes] = await Promise.all([
         apiRequest<any[]>(`/scheduled-jobs?projectId=${currentProject.id}`),
         apiRequest<any[]>(`/queues?projectId=${currentProject.id}`),
       ]);
 
-      setSchedules(schedRes);
-      setQueues(queuesRes);
+      setSchedules(schedRes || []);
+      setQueues(queuesRes || []);
 
       if (queuesRes.length > 0 && !form.queueId) {
         setForm((prev) => ({ ...prev, queueId: queuesRes[0].id }));
@@ -67,8 +73,7 @@ export const CronView: React.FC = () => {
   };
 
   useEffect(() => {
-    setIsLoading(true);
-    fetchSchedules();
+    fetchSchedules(false, true);
   }, [currentProject?.id]);
 
   const handleToggle = async (sched: any) => {
@@ -80,7 +85,7 @@ export const CronView: React.FC = () => {
         body: JSON.stringify({ isActive: newActive }),
       });
       toast.success(`Schedule "${sched.name}" ${newActive ? 'activated' : 'paused'}`);
-      await fetchSchedules();
+      await fetchSchedules(false, false);
     } catch (err: any) {
       toast.error(err.message || 'Failed to toggle schedule');
     } finally {
@@ -95,7 +100,7 @@ export const CronView: React.FC = () => {
       await apiRequest(`/scheduled-jobs/${scheduleToDelete.id}`, { method: 'DELETE' });
       toast.success(`Schedule "${scheduleToDelete.name}" deleted`);
       setScheduleToDelete(null);
-      await fetchSchedules();
+      await fetchSchedules(false, false);
     } catch (err: any) {
       toast.error(err.message || 'Failed to delete schedule');
     } finally {
@@ -140,7 +145,7 @@ export const CronView: React.FC = () => {
         timezone: 'UTC',
         payloadText: '{\n  "checkDatabase": true\n}',
       });
-      await fetchSchedules();
+      await fetchSchedules(false, true);
     } catch (err: any) {
       toast.error(err.message || 'Failed to create schedule');
     } finally {
@@ -154,6 +159,9 @@ export const CronView: React.FC = () => {
     { label: 'Daily (Midnight)', expr: '0 0 * * *' },
     { label: 'Weekly (Sun)', expr: '0 0 * * 0' },
   ];
+
+  const totalPages = Math.ceil(schedules.length / limit) || 1;
+  const paginatedSchedules = schedules.slice((page - 1) * limit, page * limit);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -171,7 +179,7 @@ export const CronView: React.FC = () => {
             size="sm"
             onClick={() => {
               setIsRefreshing(true);
-              fetchSchedules(true);
+              fetchSchedules(true, true);
             }}
             isLoading={isRefreshing}
             leftIcon={<RefreshCw className="w-4 h-4" />}
@@ -190,7 +198,7 @@ export const CronView: React.FC = () => {
       </div>
 
       {/* Schedules Table */}
-      <div className="bg-surface border border-surface-border rounded-xl overflow-hidden shadow-xl">
+      <div className="bg-surface border border-surface-border rounded-xl overflow-hidden shadow-xl min-h-[380px] flex flex-col justify-between">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-surface-elevated/80 text-slate-300 border-b border-surface-border text-xs uppercase tracking-wider">
@@ -206,14 +214,14 @@ export const CronView: React.FC = () => {
             <tbody className="divide-y divide-surface-border/50">
               {isLoading ? (
                 Array.from({ length: 3 }).map((_, i) => <TableRowSkeleton key={i} cols={6} />)
-              ) : schedules.length === 0 ? (
+              ) : paginatedSchedules.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-400">
+                  <td colSpan={6} className="py-16 text-center text-slate-400">
                     No recurring cron schedules created for this project yet.
                   </td>
                 </tr>
               ) : (
-                schedules.map((sched) => (
+                paginatedSchedules.map((sched) => (
                   <tr key={sched.id} className="hover:bg-surface-elevated/40 transition-colors">
                     <td className="py-4 px-4">
                       <div className="font-bold text-white flex items-center gap-2">
@@ -270,6 +278,41 @@ export const CronView: React.FC = () => {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Pagination Footer */}
+        <div className="p-4 border-t border-surface-border bg-surface-elevated/40 flex items-center justify-between text-xs text-slate-400">
+          <div>
+            Showing <strong className="text-white">{schedules.length > 0 ? (page - 1) * limit + 1 : 0}</strong> to{' '}
+            <strong className="text-white">{Math.min(page * limit, schedules.length)}</strong> of{' '}
+            <strong className="text-white">{schedules.length}</strong> schedules
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1 || isLoading}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              leftIcon={<ChevronLeft className="w-3.5 h-3.5" />}
+            >
+              Previous
+            </Button>
+
+            <span className="px-3 py-1 bg-surface border border-surface-border rounded-lg text-xs font-mono font-bold text-white">
+              {page} / {totalPages}
+            </span>
+
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages || isLoading}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              rightIcon={<ChevronRight className="w-3.5 h-3.5" />}
+            >
+              Next
+            </Button>
+          </div>
         </div>
       </div>
 

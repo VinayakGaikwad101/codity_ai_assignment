@@ -12,10 +12,8 @@ import {
   Play,
   Pause,
   RefreshCw,
-  Gauge,
-  Sliders,
-  Check,
-  Zap,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -25,6 +23,8 @@ export const QueuesView: React.FC = () => {
 
   const [queues, setQueues] = useState<any[]>([]);
   const [retryPolicies, setRetryPolicies] = useState<any[]>([]);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(8);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [togglingQueueId, setTogglingQueueId] = useState<string | null>(null);
@@ -41,15 +41,17 @@ export const QueuesView: React.FC = () => {
     retryPolicyId: '',
   });
 
-  const fetchQueues = async (showToast = false) => {
+  const fetchQueues = async (showToast = false, showLoader = false) => {
     if (!currentProject) return;
+    if (showLoader) setIsLoading(true);
+
     try {
       const [queuesData, policiesData] = await Promise.all([
         apiRequest<any[]>(`/queues?projectId=${currentProject.id}`),
         apiRequest<any[]>(`/retry-policies?projectId=${currentProject.id}`),
       ]);
-      setQueues(queuesData);
-      setRetryPolicies(policiesData);
+      setQueues(queuesData || []);
+      setRetryPolicies(policiesData || []);
       if (showToast) toast.success('Queues updated');
     } catch (err: any) {
       toast.error(err.message || 'Failed to fetch queues');
@@ -60,10 +62,9 @@ export const QueuesView: React.FC = () => {
   };
 
   useEffect(() => {
-    setIsLoading(true);
-    fetchQueues();
+    fetchQueues(false, true);
 
-    const unsubscribe = subscribe('queue:*', () => fetchQueues(false));
+    const unsubscribe = subscribe('queue:*', () => fetchQueues(false, false));
     return () => unsubscribe();
   }, [currentProject?.id]);
 
@@ -76,7 +77,7 @@ export const QueuesView: React.FC = () => {
         body: JSON.stringify({ isPaused: newStatus }),
       });
       toast.success(`Queue "${queue.name}" ${newStatus ? 'paused' : 'resumed'}`);
-      await fetchQueues();
+      await fetchQueues(false, false);
     } catch (err: any) {
       toast.error(err.message || 'Failed to toggle queue execution gate');
     } finally {
@@ -112,13 +113,16 @@ export const QueuesView: React.FC = () => {
         rateLimitPerMin: 300,
         retryPolicyId: '',
       });
-      await fetchQueues();
+      await fetchQueues(false, true);
     } catch (err: any) {
       toast.error(err.message || 'Failed to create queue');
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const totalPages = Math.ceil(queues.length / limit) || 1;
+  const paginatedQueues = queues.slice((page - 1) * limit, page * limit);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -136,7 +140,7 @@ export const QueuesView: React.FC = () => {
             size="sm"
             onClick={() => {
               setIsRefreshing(true);
-              fetchQueues(true);
+              fetchQueues(true, true);
             }}
             isLoading={isRefreshing}
             leftIcon={<RefreshCw className="w-4 h-4" />}
@@ -155,7 +159,7 @@ export const QueuesView: React.FC = () => {
       </div>
 
       {/* Queues Table */}
-      <div className="bg-surface border border-surface-border rounded-xl overflow-hidden shadow-xl">
+      <div className="bg-surface border border-surface-border rounded-xl overflow-hidden shadow-xl min-h-[380px] flex flex-col justify-between">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-surface-elevated/80 text-slate-300 border-b border-surface-border text-xs uppercase tracking-wider">
@@ -171,14 +175,14 @@ export const QueuesView: React.FC = () => {
             <tbody className="divide-y divide-surface-border/50">
               {isLoading ? (
                 Array.from({ length: 4 }).map((_, i) => <TableRowSkeleton key={i} cols={6} />)
-              ) : queues.length === 0 ? (
+              ) : paginatedQueues.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-400">
+                  <td colSpan={6} className="py-16 text-center text-slate-400">
                     No queues configured for this project yet. Click &quot;Create Queue&quot; to define your first queue!
                   </td>
                 </tr>
               ) : (
-                queues.map((q) => (
+                paginatedQueues.map((q) => (
                   <tr key={q.id} className="hover:bg-surface-elevated/40 transition-colors">
                     <td className="py-4 px-4">
                       <div className="font-bold text-white flex items-center gap-2">
@@ -244,6 +248,41 @@ export const QueuesView: React.FC = () => {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Pagination Footer */}
+        <div className="p-4 border-t border-surface-border bg-surface-elevated/40 flex items-center justify-between text-xs text-slate-400">
+          <div>
+            Showing <strong className="text-white">{queues.length > 0 ? (page - 1) * limit + 1 : 0}</strong> to{' '}
+            <strong className="text-white">{Math.min(page * limit, queues.length)}</strong> of{' '}
+            <strong className="text-white">{queues.length}</strong> queues
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1 || isLoading}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              leftIcon={<ChevronLeft className="w-3.5 h-3.5" />}
+            >
+              Previous
+            </Button>
+
+            <span className="px-3 py-1 bg-surface border border-surface-border rounded-lg text-xs font-mono font-bold text-white">
+              {page} / {totalPages}
+            </span>
+
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages || isLoading}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              rightIcon={<ChevronRight className="w-3.5 h-3.5" />}
+            >
+              Next
+            </Button>
+          </div>
         </div>
       </div>
 
