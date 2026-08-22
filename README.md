@@ -17,29 +17,57 @@ An enterprise-grade, high-concurrency distributed job scheduling platform built 
 
 ---
 
-## Quick Start Guide
+## Quick Start Setup Guide (Fresh Machine / New Directory)
 
 ### 1. Prerequisites
 - **Node.js**: v20.x or higher
-- **PostgreSQL 16**: (Local installation or Docker container running on port `5433` or `5432`)
+- **Docker Desktop** (or local PostgreSQL 16)
 
-### 2. Install All Monorepo Dependencies
+---
+
+### 2. Clone Repository & Install Dependencies
 ```bash
+git clone https://github.com/VinayakGaikwad101/codity_ai_assignment.git
+cd codity_ai_assignment
 npm install
 ```
 
-### 3. Setup PostgreSQL Database
-Ensure your `.env` contains your database connection string:
+---
+
+### 3. Start PostgreSQL Database (Docker)
+Start the PostgreSQL container in the background using Docker Compose:
+```bash
+docker compose up -d
+```
+> **Note**: This starts PostgreSQL 16 Alpine on host port `5433:5432` with database name `job_scheduler` and user/password `postgres:postgres`.
+
+---
+
+### 4. Configure Environment Variables
+Copy the example environment file:
+```bash
+cp .env.example .env
+```
+Ensure your `.env` contains:
 ```env
-DATABASE_URL="postgresql://postgres:postgres@localhost:5433/job_scheduler?schema=public"
-JWT_SECRET="super-secret-jwt-key-for-distributed-scheduler-2026"
-GEMINI_API_KEY="your_api_key_here"
-GEMINI_MODEL="gemini-3.1-flash-lite"
 PORT=4000
 NODE_ENV=development
+DATABASE_URL="postgresql://postgres:postgres@localhost:5433/job_scheduler?schema=public"
+JWT_SECRET="super-secret-jwt-key-for-distributed-scheduler-2026"
+JWT_EXPIRES_IN="7d"
+CORS_ORIGIN="http://localhost:3000"
+WORKER_CONCURRENCY=5
+WORKER_POLL_INTERVAL_MS=1000
+WORKER_HEARTBEAT_INTERVAL_MS=5000
+REAPER_INTERVAL_MS=15000
+GEMINI_API_KEY="your_api_key_here"
+GEMINI_MODEL="gemini-3.1-flash-lite"
 ```
 
-Push the database schema and seed demo data:
+---
+
+### 5. Initialize & Seed Database Schema
+Push the Prisma schema and seed initial multi-tenant test data:
 ```bash
 npm run prisma:push --workspace=backend
 npm run prisma:seed --workspace=backend
