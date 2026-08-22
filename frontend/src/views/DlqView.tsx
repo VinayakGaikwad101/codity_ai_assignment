@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Sparkles,
   CheckCircle,
+  KeyRound,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
@@ -36,6 +37,7 @@ export const DlqView: React.FC = () => {
 
   // AI Failure Summaries State Map
   const [aiSummaries, setAiSummaries] = useState<Record<string, any>>({});
+  const [aiErrors, setAiErrors] = useState<Record<string, string>>({});
   const [loadingAiIds, setLoadingAiIds] = useState<Set<string>>(new Set());
 
   const fetchDlq = async (showToast = false, showLoader = false) => {
@@ -86,13 +88,21 @@ export const DlqView: React.FC = () => {
 
   const handleFetchAiSummary = async (id: string) => {
     setLoadingAiIds((prev) => new Set(prev).add(id));
-    setExpandedId(id); // Auto-expand the drawer immediately
+    setExpandedId(id); // Auto-expand drawer
+    setAiErrors((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+
     try {
       const data = await apiRequest<any>(`/jobs/dlq/${id}/ai-summary`);
       setAiSummaries((prev) => ({ ...prev, [id]: data }));
-      toast.success('AI Failure Diagnosis Generated');
+      toast.success('AI Failure Diagnosis Generated via LangChain');
     } catch (err: any) {
-      toast.error(err.message || 'Failed to generate AI failure diagnosis');
+      const msg = err.message || 'Failed to generate AI failure diagnosis';
+      setAiErrors((prev) => ({ ...prev, [id]: msg }));
+      toast.error(msg);
     } finally {
       setLoadingAiIds((prev) => {
         const next = new Set(prev);
@@ -174,6 +184,7 @@ export const DlqView: React.FC = () => {
                   const isExpanded = expandedId === item.id;
                   const isReplaying = replayingIds.has(item.id);
                   const aiSummary = aiSummaries[item.id];
+                  const aiError = aiErrors[item.id];
                   const isLoadingAi = loadingAiIds.has(item.id);
 
                   return (
@@ -244,14 +255,41 @@ export const DlqView: React.FC = () => {
                       {isExpanded && (
                         <tr className="bg-slate-950/80 border-t border-b border-surface-border">
                           <td colSpan={7} className="p-6 space-y-5">
-                            {/* AI Summary Card (If Generated) */}
-                            {aiSummary && (
+                            {/* AI Diagnosis Shimmer Loader */}
+                            {isLoadingAi && (
+                              <div className="p-4 rounded-xl bg-indigo-950/30 border border-indigo-500/30 space-y-3 animate-pulse">
+                                <div className="flex items-center gap-2">
+                                  <Sparkles className="w-4 h-4 text-indigo-400 animate-spin" />
+                                  <span className="text-xs font-bold text-indigo-300 uppercase tracking-wider">
+                                    LangChain & Gemini LLM Analyzing Failure...
+                                  </span>
+                                </div>
+                                <div className="h-4 bg-indigo-900/40 rounded w-3/4" />
+                                <div className="h-4 bg-indigo-900/30 rounded w-1/2" />
+                              </div>
+                            )}
+
+                            {/* Missing API Key / Error Alert */}
+                            {aiError && (
+                              <div className="p-4 rounded-xl bg-rose-950/40 border border-rose-500/40 flex items-start gap-3">
+                                <KeyRound className="w-5 h-5 text-rose-400 flex-shrink-0 mt-0.5" />
+                                <div className="space-y-1">
+                                  <h5 className="text-xs font-bold text-rose-300 uppercase tracking-wider">
+                                    AI Diagnosis Error
+                                  </h5>
+                                  <p className="text-xs text-rose-200">{aiError}</p>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* AI Summary Card (When Generated) */}
+                            {aiSummary && !isLoadingAi && (
                               <div className="p-4 rounded-xl bg-gradient-to-r from-indigo-950/60 via-purple-950/40 to-slate-900 border border-indigo-500/30 space-y-3 shadow-xl">
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-2">
                                     <Sparkles className="w-4 h-4 text-indigo-400" />
                                     <span className="text-xs font-bold text-indigo-300 uppercase tracking-wider">
-                                      AI Failure Diagnosis & Root Cause
+                                      LangChain AI Failure Diagnosis
                                     </span>
                                   </div>
                                   <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
@@ -259,13 +297,17 @@ export const DlqView: React.FC = () => {
                                   </span>
                                 </div>
 
+                                <h4 className="text-sm font-bold text-white">
+                                  {aiSummary.rootCause}
+                                </h4>
+
                                 <p className="text-xs text-slate-200 leading-relaxed font-medium">
                                   {aiSummary.explanation}
                                 </p>
 
                                 <div className="space-y-1.5 pt-2 border-t border-indigo-500/20">
                                   <span className="text-[11px] font-bold text-slate-300 block">
-                                    Recommended Remediation:
+                                    Recommended Remediation Checklist:
                                   </span>
                                   <ul className="list-disc list-inside text-xs text-slate-400 space-y-1">
                                     {aiSummary.recommendations.map((rec: string, idx: number) => (

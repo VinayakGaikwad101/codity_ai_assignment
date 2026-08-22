@@ -24,6 +24,8 @@
     "typescript": "^7.0.2"
   },
   "dependencies": {
+    "@langchain/core": "^1.2.9",
+    "@langchain/google-genai": "^2.3.0",
     "@prisma/client": "^6.19.3",
     "@scheduler/shared": "file:../shared",
     "bcrypt": "^6.0.0",

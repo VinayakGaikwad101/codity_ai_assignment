@@ -1,9 +1,11 @@
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { PromptTemplate } from '@langchain/core/prompts';
 
 export interface AiFailureSummary {
   rootCause: string;
-  category: 'NETWORK_TIMEOUT' | 'DOWNSTREAM_OUTAGE' | 'AUTHENTICATION_ERROR' | 'SCHEMA_VALIDATION' | 'RESOURCE_EXHAUSTION' | 'UNKNOWN';
+  category: 'NETWORK_TIMEOUT' | 'DOWNSTREAM_OUTAGE' | 'AUTHENTICATION_ERROR' | 'SCHEMA_VALIDATION' | 'RESOURCE_EXHAUSTION' | 'APPLICATION_ERROR' | 'UNKNOWN';
   severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
   explanation: string;
   recommendations: string[];
@@ -11,6 +13,16 @@ export interface AiFailureSummary {
 
 export class AiSummaryService {
   static async generateFailureSummary(dlqId: string, organizationId: string): Promise<AiFailureSummary> {
+    const apiKey = process.env.GEMINI_API_KEY || process.env.AI_API_KEY;
+
+    if (!apiKey || apiKey.trim() === '') {
+      throw new AppError(
+        'No AI API Key provided. Please configure GEMINI_API_KEY in your .env environment to generate AI failure summaries.',
+        400,
+        'MISSING_AI_API_KEY'
+      );
+    }
+
     const entry = await prisma.deadLetterQueueEntry.findUnique({
       where: { id: dlqId },
       include: {
@@ -23,77 +35,68 @@ export class AiSummaryService {
       throw new AppError('Quarantined DLQ entry not found', 404, 'DLQ_NOT_FOUND');
     }
 
-    const reason = (entry.failureReason || '').toLowerCase();
-    const stack = (entry.stackTrace || '').toLowerCase();
-    const payload = JSON.stringify(entry.originalPayload || {});
+    try {
+      // Initialize LangChain Google Generative AI model
+      const model = new ChatGoogleGenerativeAI({
+        model: 'gemini-1.5-flash',
+        apiKey: apiKey.trim(),
+        temperature: 0.2,
+      });
 
-    // Intelligent heuristic failure analysis engine
-    if (reason.includes('503') || reason.includes('gateway') || stack.includes('service unavailable')) {
+      const promptTemplate = PromptTemplate.fromTemplate(`
+You are an expert site reliability engineer and backend distributed systems architect.
+Analyze the following background job failure that has exhausted all retries and landed in the Dead Letter Queue.
+
+Job Name: {jobName}
+Handler Type: {handlerType}
+Total Retries Attempted: {totalAttempts}
+Failure Reason: {failureReason}
+Exception Stack Trace:
+{stackTrace}
+Original Input Payload:
+{originalPayload}
+
+Respond with a strictly valid JSON object matching this TypeScript interface without any markdown formatting or surrounding backticks:
+{{
+  "rootCause": "string (concise title, e.g. Downstream Payment Gateway Outage)",
+  "category": "NETWORK_TIMEOUT" | "DOWNSTREAM_OUTAGE" | "AUTHENTICATION_ERROR" | "SCHEMA_VALIDATION" | "RESOURCE_EXHAUSTION" | "APPLICATION_ERROR" | "UNKNOWN",
+  "severity": "CRITICAL" | "HIGH" | "MEDIUM" | "LOW",
+  "explanation": "string (2-3 sentences explaining the root cause and why it failed)",
+  "recommendations": ["string", "string", "string"] (3 actionable steps the engineer should take before replaying)
+}}
+`);
+
+      const formattedPrompt = await promptTemplate.format({
+        jobName: entry.job.name,
+        handlerType: entry.job.handlerType,
+        totalAttempts: entry.totalAttempts.toString(),
+        failureReason: entry.failureReason || 'Unknown error',
+        stackTrace: entry.stackTrace || entry.failureReason || 'None',
+        originalPayload: JSON.stringify(entry.originalPayload || {}),
+      });
+
+      const response = await model.invoke(formattedPrompt);
+      const rawContent = typeof response.content === 'string' ? response.content : JSON.stringify(response.content);
+
+      // Clean markdown code fence if returned
+      const cleaned = rawContent.replace(/```json/gi, '').replace(/```/g, '').trim();
+      const parsed: AiFailureSummary = JSON.parse(cleaned);
+
+      return parsed;
+    } catch (err: any) {
+      console.error('[LangChain Gemini Diagnosis Error]:', err);
+      // Fallback heuristic if external network or rate limit fails
       return {
-        rootCause: 'Downstream Service Unavailable (HTTP 503 / Gateway Outage)',
-        category: 'DOWNSTREAM_OUTAGE',
+        rootCause: `Exception Analysis: ${entry.failureReason.substring(0, 80)}`,
+        category: 'APPLICATION_ERROR',
         severity: 'HIGH',
-        explanation: `The job "${entry.job.name}" failed after ${entry.totalAttempts} attempts because the external gateway returned HTTP 503 Service Unavailable. The target service is experiencing heavy load or undergoing maintenance.`,
+        explanation: `Job failed repeatedly after ${entry.totalAttempts} attempts. An unhandled exception was thrown during handler execution (${entry.failureReason}).`,
         recommendations: [
-          'Verify downstream payment/webhook provider operational status page.',
-          'Check if downstream rate limits or circuit breakers were tripped.',
-          'Trigger an atomic 1-click Replay once the external provider recovers.',
+          'Inspect the raw stack trace in the error drawer below.',
+          `Review recent worker code changes to handler: ${entry.job.handlerType}.`,
+          'Test the handler locally with identical payload parameters before replaying.',
         ],
       };
     }
-
-    if (reason.includes('timeout') || reason.includes('etimedout') || stack.includes('timeout')) {
-      return {
-        rootCause: 'Network Socket Timeout / Latency Spike',
-        category: 'NETWORK_TIMEOUT',
-        severity: 'HIGH',
-        explanation: `The background task exceeded the configured timeout limit of ${entry.job.timeoutMs}ms while waiting for a network handshake.`,
-        recommendations: [
-          'Increase the queue task timeout limit (current: ' + entry.job.timeoutMs + 'ms) if processing large payloads.',
-          'Inspect database connection pool and worker DNS resolution latency.',
-          'Replay the task during off-peak hours.',
-        ],
-      };
-    }
-
-    if (reason.includes('unauthorized') || reason.includes('401') || reason.includes('forbidden') || reason.includes('403')) {
-      return {
-        rootCause: 'Authentication or Token Expiry Failure',
-        category: 'AUTHENTICATION_ERROR',
-        severity: 'CRITICAL',
-        explanation: 'The worker encountered an HTTP 401/403 authorization rejection. API credentials, bearer tokens, or machine keys may have expired.',
-        recommendations: [
-          'Rotate the API Key in the API Keys & Access module.',
-          'Verify that environment credentials have not been revoked.',
-          'Update payload credentials before replaying.',
-        ],
-      };
-    }
-
-    if (reason.includes('syntax') || reason.includes('validation') || reason.includes('json') || payload.includes('invalid')) {
-      return {
-        rootCause: 'Schema Validation or Payload Malformation',
-        category: 'SCHEMA_VALIDATION',
-        severity: 'MEDIUM',
-        explanation: 'The worker failed while parsing or validating the incoming JSON payload schema against expected task handler parameters.',
-        recommendations: [
-          'Inspect the original JSON payload in the details panel for missing required keys.',
-          'Ensure the upstream producer adheres to the handler DTO contract.',
-        ],
-      };
-    }
-
-    // General fallback diagnosis
-    return {
-      rootCause: `Unhandled Exception: ${entry.failureReason.substring(0, 80)}`,
-      category: 'UNKNOWN',
-      severity: 'MEDIUM',
-      explanation: `Job failed repeatedly and exhausted all ${entry.totalAttempts} configured retry attempts. An unhandled exception was thrown during handler execution.`,
-      recommendations: [
-        'Inspect the raw stack trace in the error drawer below.',
-        'Review recent worker code changes to handler: ' + entry.job.handlerType + '.',
-        'Test the handler locally with identical payload parameters before replaying.',
-      ],
-    };
   }
 }
