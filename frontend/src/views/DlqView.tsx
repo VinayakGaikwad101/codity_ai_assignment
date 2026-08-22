@@ -86,6 +86,7 @@ export const DlqView: React.FC = () => {
 
   const handleFetchAiSummary = async (id: string) => {
     setLoadingAiIds((prev) => new Set(prev).add(id));
+    setExpandedId(id); // Auto-expand the drawer immediately
     try {
       const data = await apiRequest<any>(`/jobs/dlq/${id}/ai-summary`);
       setAiSummaries((prev) => ({ ...prev, [id]: data }));
