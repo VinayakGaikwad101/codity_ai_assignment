@@ -434,25 +434,28 @@ export const JobExplorerView: React.FC = () => {
           <div className="space-y-6">
             {/* Metadata Badges */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="p-3 bg-surface-elevated rounded-xl">
+              <div className="p-3 bg-surface-elevated rounded-xl min-w-0 flex flex-col justify-center">
                 <span className="text-[10px] uppercase font-bold text-slate-400">Status</span>
                 <div className="mt-1">
                   <Badge variant={selectedJob.status}>{selectedJob.status}</Badge>
                 </div>
               </div>
-              <div className="p-3 bg-surface-elevated rounded-xl">
+
+              <div className="p-3 bg-surface-elevated rounded-xl min-w-0 flex flex-col justify-center" title={selectedJob.queue?.name}>
                 <span className="text-[10px] uppercase font-bold text-slate-400">Queue</span>
                 <p className="text-xs font-mono font-bold text-white mt-1 truncate">
                   {selectedJob.queue?.name}
                 </p>
               </div>
-              <div className="p-3 bg-surface-elevated rounded-xl">
+
+              <div className="p-3 bg-surface-elevated rounded-xl min-w-0 flex flex-col justify-center" title={selectedJob.handlerType}>
                 <span className="text-[10px] uppercase font-bold text-slate-400">Handler</span>
-                <p className="text-xs font-mono font-bold text-indigo-400 mt-1">
+                <p className="text-xs font-mono font-bold text-indigo-400 mt-1 truncate">
                   {selectedJob.handlerType}
                 </p>
               </div>
-              <div className="p-3 bg-surface-elevated rounded-xl">
+
+              <div className="p-3 bg-surface-elevated rounded-xl min-w-0 flex flex-col justify-center" title={selectedJob.claimedByWorker?.hostname || 'None'}>
                 <span className="text-[10px] uppercase font-bold text-slate-400">Worker</span>
                 <p className="text-xs font-bold text-slate-200 mt-1 truncate">
                   {selectedJob.claimedByWorker?.hostname || 'None'}
