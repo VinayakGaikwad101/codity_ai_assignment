@@ -4,6 +4,8 @@ import { authRoutes } from './routes/auth.routes.js';
 import { projectRoutes } from './routes/project.routes.js';
 import { retryPolicyRoutes } from './routes/retry-policy.routes.js';
 import { queueRoutes } from './routes/queue.routes.js';
+import { jobRoutes } from './routes/job.routes.js';
+import { cronRoutes } from './routes/cron.routes.js';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware.js';
 
 export function createApp(): Express {
@@ -28,6 +30,8 @@ export function createApp(): Express {
   app.use('/api/v1/projects', projectRoutes);
   app.use('/api/v1/retry-policies', retryPolicyRoutes);
   app.use('/api/v1/queues', queueRoutes);
+  app.use('/api/v1/jobs', jobRoutes);
+  app.use('/api/v1/scheduled-jobs', cronRoutes);
 
   // 404 & Global Error Handling
   app.use(notFoundHandler);

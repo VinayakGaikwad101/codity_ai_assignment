@@ -319,6 +319,213 @@
           }
         }
       ]
+    },
+    {
+      "name": "05-Jobs",
+      "item": [
+        {
+          "name": "01. Ingest Immediate Job",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectId\": \"{{projectId}}\",\n  \"queueId\": \"{{queueId}}\",\n  \"name\": \"Settle Ledger Transaction TX_8801\",\n  \"handlerType\": \"LEDGER_SETTLEMENT\",\n  \"jobType\": \"IMMEDIATE\",\n  \"priority\": 95,\n  \"payload\": {\n    \"account\": \"ACC_9921\",\n    \"amount\": 1450.75,\n    \"currency\": \"USD\"\n  },\n  \"idempotencyKey\": \"tx_8801_settle_v1\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/jobs",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs"]
+            }
+          }
+        },
+        {
+          "name": "02. Ingest Delayed Job (10s Delay)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectId\": \"{{projectId}}\",\n  \"queueId\": \"{{queueId}}\",\n  \"name\": \"Delayed Audit Notification\",\n  \"handlerType\": \"SEND_NOTIFICATION\",\n  \"jobType\": \"DELAYED\",\n  \"delayMs\": 10000,\n  \"payload\": {\n    \"recipient\": \"finance@acme.com\",\n    \"reportId\": \"rep_991\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/jobs",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs"]
+            }
+          }
+        },
+        {
+          "name": "03. Ingest Batch Jobs (5 Child Items)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectId\": \"{{projectId}}\",\n  \"queueId\": \"{{queueId}}\",\n  \"batchName\": \"Morning KYC Verification Batch\",\n  \"jobs\": [\n    { \"name\": \"Verify User 101 KYC\", \"handlerType\": \"KYC_VERIFY\", \"payload\": { \"userId\": \"u101\" } },\n    { \"name\": \"Verify User 102 KYC\", \"handlerType\": \"KYC_VERIFY\", \"payload\": { \"userId\": \"u102\" } },\n    { \"name\": \"Verify User 103 KYC\", \"handlerType\": \"KYC_VERIFY\", \"payload\": { \"userId\": \"u103\" } },\n    { \"name\": \"Verify User 104 KYC\", \"handlerType\": \"KYC_VERIFY\", \"payload\": { \"userId\": \"u104\" } },\n    { \"name\": \"Verify User 105 KYC\", \"handlerType\": \"KYC_VERIFY\", \"payload\": { \"userId\": \"u105\" } }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/jobs/batch",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs", "batch"]
+            }
+          }
+        },
+        {
+          "name": "04. Ingest DAG Workflow Child Job",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectId\": \"{{projectId}}\",\n  \"queueId\": \"{{queueId}}\",\n  \"name\": \"Step 2: Generate PDF Receipt (Blocked by Step 1)\",\n  \"handlerType\": \"GENERATE_PDF\",\n  \"dependsOnJobIds\": [\"{{jobId}}\"],\n  \"payload\": {\n    \"template\": \"tax_invoice_2026\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/jobs",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs"]
+            }
+          }
+        },
+        {
+          "name": "05. List All Jobs (with Pagination & Search)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/jobs?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "06. Get Job Details & DAG Dependencies",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/jobs/{{jobId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs", "{{jobId}}"]
+            }
+          }
+        },
+        {
+          "name": "07. Cancel Scheduled Job",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/jobs/{{jobId}}/cancel",
+              "host": ["{{baseUrl}}"],
+              "path": ["jobs", "{{jobId}}", "cancel"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "06-Cron",
+      "item": [
+        {
+          "name": "01. Create Recurring Cron Schedule",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectId\": \"{{projectId}}\",\n  \"queueId\": \"{{queueId}}\",\n  \"name\": \"Hourly Settlement Reconciliation\",\n  \"handlerType\": \"HOURLY_RECON\",\n  \"cronExpression\": \"0 * * * *\",\n  \"timezone\": \"UTC\",\n  \"payload\": {\n    \"ledger\": \"main_us_settlement\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/scheduled-jobs",
+              "host": ["{{baseUrl}}"],
+              "path": ["scheduled-jobs"]
+            }
+          }
+        },
+        {
+          "name": "02. List Recurring Cron Schedules",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/scheduled-jobs",
+              "host": ["{{baseUrl}}"],
+              "path": ["scheduled-jobs"]
+            }
+          }
+        }
+      ]
     }
   ],
   "variable": [
@@ -344,6 +551,11 @@
     },
     {
       "key": "queueId",
+      "value": "177e78c5-e79e-46f7-8c9e-3bd6aadac9e5",
+      "type": "string"
+    },
+    {
+      "key": "jobId",
       "value": "",
       "type": "string"
     }
