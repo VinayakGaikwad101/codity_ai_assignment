@@ -4,25 +4,27 @@ import { AlertOctagon, RotateCcw, RefreshCw, X, FileText } from 'lucide-react';
 
 export const DlqView: React.FC = () => {
   const [dlqItems, setDlqItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [replayingId, setReplayingId] = useState<string | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<any | null>(null);
 
-  const fetchDlq = async () => {
-    setLoading(true);
+  const fetchDlq = async (showSpin = false) => {
+    if (showSpin) setIsRefreshing(true);
     try {
       const res: any = await apiClient.get('/jobs/dlq');
       setDlqItems(res.data?.items || []);
     } catch (err) {
       console.error('Failed to fetch DLQ items:', err);
     } finally {
-      setLoading(false);
+      if (showSpin) {
+        setTimeout(() => setIsRefreshing(false), 500);
+      }
     }
   };
 
   useEffect(() => {
-    fetchDlq();
-    const interval = setInterval(fetchDlq, 4000);
+    fetchDlq(false);
+    const interval = setInterval(() => fetchDlq(false), 4000);
     return () => clearInterval(interval);
   }, []);
 
@@ -31,11 +33,11 @@ export const DlqView: React.FC = () => {
     setReplayingId(id);
     try {
       await apiClient.post(`/jobs/dlq/${id}/replay`);
-      await fetchDlq();
+      await fetchDlq(false);
     } catch (err: any) {
       alert(`Error replaying DLQ job: ${err.message || 'Action failed'}`);
     } finally {
-      setReplayingId(null);
+      setTimeout(() => setReplayingId(null), 500);
     }
   };
 
@@ -47,12 +49,11 @@ export const DlqView: React.FC = () => {
           <p className="text-xs text-slate-400 mt-0.5">Quarantined jobs that exhausted all retry policies with diagnostic error payloads</p>
         </div>
         <button
-          onClick={fetchDlq}
-          disabled={loading}
-          className="flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-slate-850 border border-slate-800 text-xs font-medium text-slate-300 hover:bg-slate-800 transition-colors"
+          onClick={() => fetchDlq(true)}
+          className="flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-slate-850 border border-slate-800 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-slate-100 transition-colors"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-brand-400' : ''}`} />
-          <span>{loading ? 'Refreshing...' : 'Refresh'}</span>
+          <RefreshCw className={`w-3.5 h-3.5 transition-transform duration-500 ${isRefreshing ? 'animate-spin text-brand-400' : ''}`} />
+          <span>Refresh</span>
         </button>
       </div>
 
@@ -81,36 +82,38 @@ export const DlqView: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                dlqItems.map((item) => (
-                  <tr
-                    key={item.id}
-                    onClick={() => setSelectedEntry(item)}
-                    className="hover:bg-slate-800/50 cursor-pointer transition-colors"
-                  >
-                    <td className="p-3">
-                      <div className="font-medium text-slate-200">{item.job?.name || 'Unnamed Job'}</div>
-                      <div className="font-mono text-slate-500 text-[10px]">{item.jobId}</div>
-                    </td>
-                    <td className="p-3 font-mono text-slate-300">{item.queue?.name}</td>
-                    <td className="p-3 max-w-xs">
-                      <div className="text-rose-400 font-mono truncate">{item.failureReason}</div>
-                    </td>
-                    <td className="p-3 font-mono text-slate-400">{item.totalAttempts}</td>
-                    <td className="p-3 font-mono text-slate-400">
-                      {new Date(item.deadLetteredAt).toLocaleString()}
-                    </td>
-                    <td className="p-3 text-right">
-                      <button
-                        onClick={(e) => handleReplay(item.id, e)}
-                        disabled={replayingId === item.id}
-                        className="flex items-center space-x-1 px-2.5 py-1 rounded bg-brand-600/20 text-brand-400 border border-brand-500/30 hover:bg-brand-600/30 text-xs ml-auto transition-colors"
-                      >
-                        <RotateCcw className={`w-3 h-3 ${replayingId === item.id ? 'animate-spin' : ''}`} />
-                        <span>{replayingId === item.id ? 'Replaying...' : 'Replay'}</span>
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                dlqItems.map((item) => {
+                  const isThisReplaying = replayingId === item.id;
+                  return (
+                    <tr
+                      key={item.id}
+                      onClick={() => setSelectedEntry(item)}
+                      className="hover:bg-slate-800/50 cursor-pointer transition-colors"
+                    >
+                      <td className="p-3">
+                        <div className="font-medium text-slate-200">{item.job?.name || 'Unnamed Job'}</div>
+                        <div className="font-mono text-slate-500 text-[10px]">{item.jobId}</div>
+                      </td>
+                      <td className="p-3 font-mono text-slate-300">{item.queue?.name}</td>
+                      <td className="p-3 max-w-xs">
+                        <div className="text-rose-400 font-mono truncate">{item.failureReason}</div>
+                      </td>
+                      <td className="p-3 font-mono text-slate-400">{item.totalAttempts}</td>
+                      <td className="p-3 font-mono text-slate-400">
+                        {new Date(item.deadLetteredAt).toLocaleString()}
+                      </td>
+                      <td className="p-3 text-right">
+                        <button
+                          onClick={(e) => handleReplay(item.id, e)}
+                          className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded bg-brand-600/20 text-brand-400 border border-brand-500/30 hover:bg-brand-600/30 text-xs transition-colors"
+                        >
+                          <RotateCcw className={`w-3 h-3 ${isThisReplaying ? 'animate-spin text-brand-300' : ''}`} />
+                          <span>Replay</span>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -164,7 +167,7 @@ export const DlqView: React.FC = () => {
               }}
               className="flex-1 flex items-center justify-center space-x-1.5 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
+              <RotateCcw className={`w-3.5 h-3.5 ${replayingId === selectedEntry.id ? 'animate-spin' : ''}`} />
               <span>Replay & Re-enqueue Now</span>
             </button>
             <button

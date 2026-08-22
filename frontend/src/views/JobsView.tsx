@@ -28,6 +28,7 @@ export const JobsView: React.FC = () => {
   const [queueFilter, setQueueFilter] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // 300ms search input debounce
   useEffect(() => {
@@ -48,7 +49,8 @@ export const JobsView: React.FC = () => {
     payloadJson: '{\n  "message": "Hello from background scheduler",\n  "shouldFail": false\n}',
   });
 
-  const fetchJobs = async () => {
+  const fetchJobs = async (showSpin = false) => {
+    if (showSpin) setIsRefreshing(true);
     try {
       const params: any = { limit: 50 };
       if (statusFilter) params.status = statusFilter;
@@ -64,6 +66,10 @@ export const JobsView: React.FC = () => {
       setQueues(queuesRes.data || []);
     } catch (err) {
       console.error('Failed to fetch jobs:', err);
+    } finally {
+      if (showSpin) {
+        setTimeout(() => setIsRefreshing(false), 500);
+      }
     }
   };
 
@@ -230,10 +236,10 @@ export const JobsView: React.FC = () => {
         </div>
         <div className="flex space-x-3">
           <button
-            onClick={fetchJobs}
-            className="flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-slate-850 border border-slate-800 text-xs font-medium text-slate-300 hover:bg-slate-800"
+            onClick={() => fetchJobs(true)}
+            className="flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-slate-850 border border-slate-800 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-slate-100 transition-colors"
           >
-            <RefreshCw className="w-3.5 h-3.5" />
+            <RefreshCw className={`w-3.5 h-3.5 transition-transform duration-500 ${isRefreshing ? 'animate-spin text-brand-400' : ''}`} />
             <span>Refresh</span>
           </button>
           <button
