@@ -1,0 +1,26 @@
+{
+  "name": "distributed-job-scheduler",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Production-inspired distributed job scheduling platform with PostgreSQL SKIP LOCKED concurrency",
+  "workspaces": [
+    "shared",
+    "backend",
+    "worker",
+    "frontend",
+    "tests"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "dev:backend": "npm run dev --workspace=backend",
+    "dev:worker": "npm run dev --workspace=worker",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "test": "npm test --workspace=tests",
+    "prisma:generate": "npm run prisma:generate --workspace=backend",
+    "prisma:push": "npm run prisma:push --workspace=backend",
+    "prisma:seed": "npm run prisma:seed --workspace=backend"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}

@@ -1,0 +1,53 @@
+export enum JobStatus {
+  QUEUED = 'QUEUED',
+  SCHEDULED = 'SCHEDULED',
+  CLAIMED = 'CLAIMED',
+  RUNNING = 'RUNNING',
+  COMPLETED = 'COMPLETED',
+  FAILED = 'FAILED',
+  DEAD_LETTERED = 'DEAD_LETTERED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum JobType {
+  IMMEDIATE = 'IMMEDIATE',
+  DELAYED = 'DELAYED',
+  SCHEDULED = 'SCHEDULED',
+  CRON = 'CRON',
+  BATCH_PARENT = 'BATCH_PARENT',
+  BATCH_CHILD = 'BATCH_CHILD',
+  WORKFLOW_NODE = 'WORKFLOW_NODE',
+}
+
+export enum RetryStrategy {
+  FIXED = 'FIXED',
+  LINEAR = 'LINEAR',
+  EXPONENTIAL = 'EXPONENTIAL',
+}
+
+export enum WorkerStatus {
+  HEALTHY = 'HEALTHY',
+  DEGRADED = 'DEGRADED',
+  OFFLINE = 'OFFLINE',
+  DRAINING = 'DRAINING',
+}
+
+export enum UserRole {
+  ADMIN = 'ADMIN',
+  OPERATOR = 'OPERATOR',
+  VIEWER = 'VIEWER',
+}
+
+export enum LogLevel {
+  DEBUG = 'DEBUG',
+  INFO = 'INFO',
+  WARN = 'WARN',
+  ERROR = 'ERROR',
+}
+
+export enum ExecutionStatus {
+  RUNNING = 'RUNNING',
+  SUCCESS = 'SUCCESS',
+  FAILED = 'FAILED',
+  TIMED_OUT = 'TIMED_OUT',
+}
