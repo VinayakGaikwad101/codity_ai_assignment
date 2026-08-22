@@ -306,9 +306,7 @@ export const App: React.FC = () => {
               className="w-full"
               isLoading={isSubmittingAuth}
             >
-              {authMode === 'LOGIN'
-                ? `Sign In as ${email.split('@')[0] || 'User'}`
-                : 'Create Organization Workspace'}
+              {authMode === 'LOGIN' ? 'Sign In' : 'Create Account'}
             </Button>
           </form>
         </div>

@@ -11,7 +11,7 @@ import {
   Activity,
   RefreshCw,
   Clock,
-  ShieldCheck,
+  Trash2,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
@@ -19,13 +19,15 @@ import { toast } from 'sonner';
 export const WorkersView: React.FC = () => {
   const { subscribe } = useWebSocket();
   const [workers, setWorkers] = useState<any[]>([]);
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'HEALTHY' | 'OFFLINE'>('ALL');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
-  const fetchWorkers = async (showToast = false) => {
+  const fetchWorkers = async (showToast = false, showLoader = false) => {
+    if (showLoader) setIsLoading(true);
     try {
       const data = await apiRequest<any[]>('/workers');
-      setWorkers(data);
+      setWorkers(data || []);
       if (showToast) toast.success('Worker fleet metrics updated');
     } catch (err: any) {
       toast.error(err.message || 'Failed to fetch worker fleet');
@@ -36,12 +38,19 @@ export const WorkersView: React.FC = () => {
   };
 
   useEffect(() => {
-    setIsLoading(true);
-    fetchWorkers();
+    fetchWorkers(false, true);
 
-    const unsubscribe = subscribe('worker:*', () => fetchWorkers(false));
+    const unsubscribe = subscribe('worker:*', () => fetchWorkers(false, false));
     return () => unsubscribe();
   }, []);
+
+  const filteredWorkers = workers.filter((w) => {
+    if (statusFilter === 'HEALTHY') return w.status === 'HEALTHY';
+    if (statusFilter === 'OFFLINE') return w.status === 'OFFLINE';
+    return true;
+  });
+
+  const showSkeleton = isLoading || isRefreshing;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -53,34 +62,70 @@ export const WorkersView: React.FC = () => {
             Real-time telemetry, active slot concurrency, CPU/RAM utilization, and heartbeat health
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            setIsRefreshing(true);
-            fetchWorkers(true);
-          }}
-          isLoading={isRefreshing}
-          leftIcon={<RefreshCw className="w-4 h-4" />}
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setIsRefreshing(true);
+              fetchWorkers(true, false);
+            }}
+            isLoading={isRefreshing}
+            leftIcon={<RefreshCw className="w-4 h-4" />}
+          >
+            Refresh Fleet
+          </Button>
+        </div>
+      </div>
+
+      {/* Filter Tabs */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setStatusFilter('ALL')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+            statusFilter === 'ALL'
+              ? 'bg-indigo-600 text-white shadow-md'
+              : 'text-slate-400 hover:text-white bg-surface border border-surface-border'
+          }`}
         >
-          Refresh Fleet
-        </Button>
+          All Nodes ({workers.length})
+        </button>
+        <button
+          onClick={() => setStatusFilter('HEALTHY')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+            statusFilter === 'HEALTHY'
+              ? 'bg-emerald-600 text-white shadow-md'
+              : 'text-slate-400 hover:text-white bg-surface border border-surface-border'
+          }`}
+        >
+          Healthy ({workers.filter((w) => w.status === 'HEALTHY').length})
+        </button>
+        <button
+          onClick={() => setStatusFilter('OFFLINE')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+            statusFilter === 'OFFLINE'
+              ? 'bg-slate-700 text-white shadow-md'
+              : 'text-slate-400 hover:text-white bg-surface border border-surface-border'
+          }`}
+        >
+          Offline ({workers.filter((w) => w.status === 'OFFLINE').length})
+        </button>
       </div>
 
       {/* Worker Fleet Nodes Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {isLoading ? (
+        {showSkeleton ? (
           Array.from({ length: 3 }).map((_, i) => <CardSkeleton key={i} />)
-        ) : workers.length === 0 ? (
+        ) : filteredWorkers.length === 0 ? (
           <div className="col-span-3 p-12 bg-surface border border-surface-border rounded-2xl text-center space-y-3">
             <Server className="w-12 h-12 text-slate-500 mx-auto" />
-            <h3 className="text-lg font-bold text-white">No Active Workers Registered</h3>
+            <h3 className="text-lg font-bold text-white">No Workers in Current Filter</h3>
             <p className="text-sm text-slate-400 max-w-md mx-auto">
               Start background workers via <code className="text-indigo-300 bg-indigo-950/60 px-2 py-0.5 rounded">npm run dev:worker</code> to begin claiming tasks.
             </p>
           </div>
         ) : (
-          workers.map((worker) => {
+          filteredWorkers.map((worker) => {
             const cpu = worker.latestMetrics?.cpuUsage || 0;
             const memory = worker.latestMetrics?.memoryUsage || 0;
             const activeJobs = worker.activeJobsCount || 0;
