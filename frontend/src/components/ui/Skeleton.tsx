@@ -15,11 +15,11 @@ export const Skeleton: React.FC<SkeletonProps> = ({ className, ...props }) => {
   );
 };
 
-export const TableRowSkeleton: React.FC<{ cols?: number }> = ({ cols = 5 }) => {
+export const TableRowSkeleton: React.FC<{ cols?: number }> = ({ cols = 6 }) => {
   return (
-    <tr className="border-b border-surface-border/50 animate-fade-in">
+    <tr className="border-b border-surface-border/50 animate-fade-in h-14">
       {Array.from({ length: cols }).map((_, i) => (
-        <td key={i} className="py-3 px-4">
+        <td key={i} className="py-4 px-4">
           <Skeleton className="h-4 w-full max-w-[140px]" />
         </td>
       ))}

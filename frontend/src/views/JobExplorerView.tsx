@@ -57,11 +57,9 @@ export const JobExplorerView: React.FC = () => {
     idempotencyKey: '',
   });
 
-  const isInitialLoad = useRef(true);
-
-  const fetchJobs = async (showToast = false, showFullLoader = false) => {
+  const fetchJobs = async (showToast = false, showLoader = false) => {
     if (!currentProject) return;
-    if (showFullLoader) setIsLoading(true);
+    if (showLoader) setIsLoading(true);
 
     try {
       let url = `/jobs?projectId=${currentProject.id}&page=${page}&limit=${limit}`;
@@ -88,14 +86,12 @@ export const JobExplorerView: React.FC = () => {
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
-      isInitialLoad.current = false;
     }
   };
 
   useEffect(() => {
     fetchJobs(false, true);
 
-    // Auto-update list in real time whenever worker completes/updates a job
     const unsubscribe = subscribe('job:*', () => fetchJobs(false, false));
     return () => unsubscribe();
   }, [currentProject?.id, page, statusFilter]);
@@ -195,6 +191,8 @@ export const JobExplorerView: React.FC = () => {
     'CANCELLED',
   ];
 
+  const showSkeleton = isLoading || isRefreshing;
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
@@ -211,7 +209,7 @@ export const JobExplorerView: React.FC = () => {
             size="sm"
             onClick={() => {
               setIsRefreshing(true);
-              fetchJobs(true, true);
+              fetchJobs(true, false);
             }}
             isLoading={isRefreshing}
             leftIcon={<RefreshCw className="w-4 h-4" />}
@@ -237,8 +235,11 @@ export const JobExplorerView: React.FC = () => {
             <button
               key={tab}
               onClick={() => {
-                setStatusFilter(tab);
-                setPage(1);
+                if (statusFilter !== tab) {
+                  setIsLoading(true);
+                  setStatusFilter(tab);
+                  setPage(1);
+                }
               }}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all duration-150 cursor-pointer ${
                 statusFilter === tab
@@ -261,8 +262,9 @@ export const JobExplorerView: React.FC = () => {
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
+                setIsLoading(true);
                 setPage(1);
-                fetchJobs(false, true);
+                fetchJobs(false, false);
               }
             }}
             className="w-full pl-9 pr-4 py-1.5 rounded-lg bg-surface-elevated border border-surface-border text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
@@ -271,7 +273,7 @@ export const JobExplorerView: React.FC = () => {
       </div>
 
       {/* Jobs Table */}
-      <div className="bg-surface border border-surface-border rounded-xl overflow-hidden shadow-xl min-h-[380px] flex flex-col justify-between">
+      <div className="bg-surface border border-surface-border rounded-xl overflow-hidden shadow-xl min-h-[440px] flex flex-col justify-between">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-surface-elevated/80 text-slate-300 border-b border-surface-border text-xs uppercase tracking-wider">
@@ -286,11 +288,11 @@ export const JobExplorerView: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-border/50">
-              {isLoading ? (
+              {showSkeleton ? (
                 Array.from({ length: 6 }).map((_, i) => <TableRowSkeleton key={i} cols={7} />)
               ) : jobs.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-16 text-center text-slate-400">
+                  <td colSpan={7} className="py-20 text-center text-slate-400">
                     No jobs match the current filter <span className="text-indigo-400 font-semibold">&quot;{statusFilter}&quot;</span>.
                   </td>
                 </tr>
@@ -381,8 +383,11 @@ export const JobExplorerView: React.FC = () => {
             <Button
               variant="outline"
               size="sm"
-              disabled={page <= 1 || isLoading}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1 || showSkeleton}
+              onClick={() => {
+                setIsLoading(true);
+                setPage((p) => Math.max(1, p - 1));
+              }}
               leftIcon={<ChevronLeft className="w-3.5 h-3.5" />}
             >
               Previous
@@ -395,8 +400,11 @@ export const JobExplorerView: React.FC = () => {
             <Button
               variant="outline"
               size="sm"
-              disabled={page >= totalPages || isLoading}
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages || showSkeleton}
+              onClick={() => {
+                setIsLoading(true);
+                setPage((p) => Math.min(totalPages, p + 1));
+              }}
               rightIcon={<ChevronRight className="w-3.5 h-3.5" />}
             >
               Next
