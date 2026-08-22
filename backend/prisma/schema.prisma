@@ -200,6 +200,7 @@ model Job {
   maxRetries        Int          @default(3)
   retryPolicyId     String?
   parentJobId       String?
+  scheduledJobId    String?
   claimedByWorkerId String?
   claimedAt         DateTime?
   createdAt         DateTime     @default(now())
@@ -217,7 +218,7 @@ model Job {
   parentDependencies JobDependency[] @relation("ChildJobDeps")
   childDependencies  JobDependency[] @relation("ParentJobDeps")
   dlqEntries        DeadLetterQueueEntry[]
-  spawnedFromScheduled ScheduledJob? @relation("SpawnedJobs", fields: [parentJobId], references: [id], map: "job_scheduled_parent_fkey")
+  spawnedFromScheduled ScheduledJob? @relation("SpawnedJobs", fields: [scheduledJobId], references: [id], onDelete: SetNull)
 
   @@unique([projectId, idempotencyKey])
   // High-performance composite index optimized for atomic PostgreSQL SKIP LOCKED poller queries
