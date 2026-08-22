@@ -1,6 +1,6 @@
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
-import { CreateRetryPolicyDto } from '@scheduler/shared';
+import { CreateRetryPolicyDto, RetryStrategy } from '@scheduler/shared';
 
 export class RetryPolicyService {
   static async create(organizationId: string, dto: CreateRetryPolicyDto) {
@@ -38,6 +38,51 @@ export class RetryPolicyService {
   }
 
   static async list(organizationId: string, projectId?: string) {
+    if (projectId) {
+      const count = await prisma.retryPolicy.count({
+        where: { projectId },
+      });
+
+      if (count === 0) {
+        // Auto-provision 3 standard policies for this project
+        await prisma.retryPolicy.createMany({
+          data: [
+            {
+              projectId,
+              name: 'Standard Exponential Backoff',
+              strategy: RetryStrategy.EXPONENTIAL,
+              maxRetries: 3,
+              initialIntervalMs: 1000,
+              maxIntervalMs: 30000,
+              backoffMultiplier: 2.0,
+              useJitter: true,
+            },
+            {
+              projectId,
+              name: 'Linear Backoff Retry',
+              strategy: RetryStrategy.LINEAR,
+              maxRetries: 4,
+              initialIntervalMs: 2000,
+              maxIntervalMs: 15000,
+              backoffMultiplier: 1.0,
+              useJitter: false,
+            },
+            {
+              projectId,
+              name: 'Fixed 5-Second Delay',
+              strategy: RetryStrategy.FIXED,
+              maxRetries: 2,
+              initialIntervalMs: 5000,
+              maxIntervalMs: 5000,
+              backoffMultiplier: 1.0,
+              useJitter: false,
+            },
+          ],
+          skipDuplicates: true,
+        });
+      }
+    }
+
     const whereClause: any = {
       project: { organizationId },
     };
