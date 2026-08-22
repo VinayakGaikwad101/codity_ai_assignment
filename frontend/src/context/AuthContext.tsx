@@ -34,16 +34,10 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem('djs_user');
-    return saved ? JSON.parse(saved) : null;
-  });
+  const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('djs_auth_token'));
   const [projects, setProjects] = useState<Project[]>([]);
-  const [currentProject, setCurrentProject] = useState<Project | null>(() => {
-    const saved = localStorage.getItem('djs_current_project');
-    return saved ? JSON.parse(saved) : null;
-  });
+  const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   const logout = () => {
@@ -58,24 +52,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refreshProjects = async () => {
     const storedToken = localStorage.getItem('djs_auth_token');
-    if (!storedToken) return;
+    if (!storedToken) {
+      logout();
+      return;
+    }
+
     try {
-      const data = await apiRequest<Project[]>('/projects');
-      setProjects(data);
-      if (data.length > 0) {
-        const exists = data.find((p) => p.id === currentProject?.id);
-        if (exists) {
-          setCurrentProject(exists);
-        } else {
-          setCurrentProject(data[0]);
-          localStorage.setItem('djs_current_project', JSON.stringify(data[0]));
+      const data = await apiRequest<Project[]>('/projects', {
+        headers: { Authorization: `Bearer ${storedToken}` },
+      });
+
+      if (!Array.isArray(data) || data.length === 0) {
+        logout();
+        return;
+      }
+
+      // Restore user object only if valid projects exist for this token
+      const savedUser = localStorage.getItem('djs_user');
+      if (savedUser) {
+        try {
+          setUser(JSON.parse(savedUser));
+        } catch {
+          logout();
+          return;
         }
       } else {
-        // No projects belong to this old session's organization (stale database wipe)
         logout();
+        return;
+      }
+
+      setProjects(data);
+      const savedProj = localStorage.getItem('djs_current_project');
+      let matchedProj = null;
+      if (savedProj) {
+        try {
+          const parsed = JSON.parse(savedProj);
+          matchedProj = data.find((p) => p.id === parsed.id);
+        } catch {}
+      }
+
+      if (matchedProj) {
+        setCurrentProject(matchedProj);
+      } else {
+        setCurrentProject(data[0]);
+        localStorage.setItem('djs_current_project', JSON.stringify(data[0]));
       }
     } catch (e: any) {
-      console.error('Failed to fetch projects, clearing stale session:', e);
+      console.error('Session verification failed, logging out:', e);
       logout();
     }
   };
@@ -130,13 +153,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const init = async () => {
-      if (token) {
+      const storedToken = localStorage.getItem('djs_auth_token');
+      if (storedToken) {
         await refreshProjects();
+      } else {
+        logout();
       }
       setIsLoading(false);
     };
     init();
-  }, [token]);
+  }, []);
 
   return (
     <AuthContext.Provider
