@@ -12,6 +12,7 @@ An enterprise-grade, high-concurrency distributed job scheduling platform built 
 - **Configurable Retry Engine with Full Jitter**: Exponential backoff, Linear backoff, Fixed delay, and Dead Letter Queue (DLQ) quarantine.
 - **Real-Time WebSocket Synchronization**: Live events broadcasted to connected dashboards over `ws://localhost:4000/ws`.
 - **Full-Stack React + Tailwind CSS Control Plane**: Live telemetry gauges, shimmer skeleton loaders, status filter pills, and 1-click DLQ replay.
+- **LangChain AI Failure Diagnostics**: Automated LLM root-cause analysis and remediation suggestions using Gemini.
 - **Automated Vitest Test Suite**: Full concurrency, retry, DAG dependency, and idempotency tests passing with 100% success.
 
 ---
@@ -81,10 +82,18 @@ Executes all integration tests:
 
 ---
 
-## Deliverables & Documentation Index
+## Deliverables & Technical Documentation Index
 
-- **[System Architecture Document & Mermaid Diagram](docs/architecture.md)**
-- **[14-Table 3NF Database Schema & ER Diagram](docs/database-schema.md)**
-- **[REST API Reference & Contract Specification](docs/api-reference.md)**
-- **[Design Decisions & Architectural Trade-offs](docs/design-decisions.md)**
-- **[Bruno / Postman API Collection](bruno/postman_collection.json)**
+All architectural documentation and diagrams are located in the [`docs/`](docs/) directory:
+
+| Document | File Link | Description & Diagram Details |
+| :--- | :--- | :--- |
+| **System Architecture** | [docs/architecture.md](docs/architecture.md) | High-level system architecture flowchart (Client, Control Plane, PostgreSQL, and Worker Fleet) + subsystem deep dive. |
+| **Database Schema & ERD** | [docs/database-schema.md](docs/database-schema.md) | Complete 14-entity 3NF Entity-Relationship Diagram (ERD), indexing strategy, foreign keys, and cascading behaviors. |
+| **REST API Reference** | [docs/api-reference.md](docs/api-reference.md) | Complete documentation covering all 27 REST endpoints, request/response JSON schemas, and authentication headers. |
+| **Design Decisions & Trade-offs** | [docs/design-decisions.md](docs/design-decisions.md) | Technical comparison of PostgreSQL `SKIP LOCKED` vs Redis BullMQ vs Apache Kafka, race condition elimination, and failure recovery. |
+| **Interactive API Collection** | [bruno/postman_collection.json](bruno/postman_collection.json) | Exported Postman / Bruno collection for testing all endpoints. |
+
+> **Viewing Diagrams Note**: 
+> - **On GitHub**: All Mermaid architecture and ER diagrams render automatically in GitHub's web interface.
+> - **In VS Code / Local Editors**: Press `Ctrl + Shift + V` (or `Cmd + Shift + V` on macOS) to open Markdown Preview and view the rendered diagrams.
