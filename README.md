@@ -21,7 +21,7 @@ An enterprise-grade, high-concurrency distributed job scheduling platform built 
 
 ### 1. Prerequisites
 - **Node.js**: v20.x or higher
-- **Docker Desktop** (or local PostgreSQL 16)
+- **Docker Desktop**: (Installed and running on your machine) or a local PostgreSQL 16 instance
 
 ---
 
@@ -36,7 +36,7 @@ npm run build --workspace=shared
 ---
 
 ### 3. Start PostgreSQL Database (Docker)
-Start the PostgreSQL container in the background using Docker Compose:
+Ensure Docker Desktop is open/running, then start the PostgreSQL container:
 ```bash
 docker compose up -d
 ```
