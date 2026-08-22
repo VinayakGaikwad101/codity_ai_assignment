@@ -44,15 +44,17 @@ docker compose up -d
 ---
 
 ### 4. Create Environment Variables (.env)
-Create your `.env` file from the provided `.env.example`:
+Create your `.env` files from the provided `.env.example`:
 
 - **Windows PowerShell**:
   ```powershell
   Copy-Item .env.example .env
+  Copy-Item .env.example backend\.env
   ```
 - **macOS / Linux / Bash**:
   ```bash
   cp .env.example .env
+  cp .env.example backend/.env
   ```
 
 ---
