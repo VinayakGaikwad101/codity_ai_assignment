@@ -399,7 +399,7 @@
           }
         },
         {
-          "name": "04. Ingest DAG Workflow Child Job",
+          "name": "04. Ingest Deterministic Failing Job (Retry & DLQ Test)",
           "request": {
             "method": "POST",
             "header": [
@@ -414,7 +414,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"projectId\": \"{{projectId}}\",\n  \"queueId\": \"{{queueId}}\",\n  \"name\": \"Step 2: Generate PDF Receipt (Blocked by Step 1)\",\n  \"handlerType\": \"GENERATE_PDF\",\n  \"dependsOnJobIds\": [\"{{jobId}}\"],\n  \"payload\": {\n    \"template\": \"tax_invoice_2026\"\n  }\n}"
+              "raw": "{\n  \"projectId\": \"{{projectId}}\",\n  \"queueId\": \"{{queueId}}\",\n  \"name\": \"Unstable Payment Webhook Dispatch\",\n  \"handlerType\": \"FAILING_TASK\",\n  \"jobType\": \"IMMEDIATE\",\n  \"priority\": 80,\n  \"payload\": {\n    \"failUntilAttempt\": 5,\n    \"errorMessage\": \"Payment gateway returned 503 Service Unavailable\"\n  }\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/jobs",
@@ -458,23 +458,6 @@
               "raw": "{{baseUrl}}/jobs/{{jobId}}",
               "host": ["{{baseUrl}}"],
               "path": ["jobs", "{{jobId}}"]
-            }
-          }
-        },
-        {
-          "name": "07. Cancel Scheduled Job",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/jobs/{{jobId}}/cancel",
-              "host": ["{{baseUrl}}"],
-              "path": ["jobs", "{{jobId}}", "cancel"]
             }
           }
         }
@@ -526,6 +509,28 @@
           }
         }
       ]
+    },
+    {
+      "name": "07-Workers",
+      "item": [
+        {
+          "name": "01. List Worker Fleet & Telemetry Metrics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/workers",
+              "host": ["{{baseUrl}}"],
+              "path": ["workers"]
+            }
+          }
+        }
+      ]
     }
   ],
   "variable": [
@@ -556,7 +561,7 @@
     },
     {
       "key": "jobId",
-      "value": "",
+      "value": "13aecf42-e22e-47ea-9655-854386d46b2d",
       "type": "string"
     }
   ]
