@@ -19,6 +19,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from 'recharts';
+import { Skeleton, TableSkeleton } from '../components/Skeleton.js';
 
 export const OverviewView: React.FC = () => {
   const [metrics, setMetrics] = useState<any>(null);
@@ -48,10 +49,6 @@ export const OverviewView: React.FC = () => {
     const interval = setInterval(fetchData, 4000);
     return () => clearInterval(interval);
   }, []);
-
-  if (loading && !metrics) {
-    return <div className="p-8 text-center text-slate-500">Loading system metrics...</div>;
-  }
 
   const statCards = [
     {
@@ -108,37 +105,44 @@ export const OverviewView: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold text-slate-100">System Dashboard & Health</h2>
+        <h2 className="text-xl font-bold text-slate-100 tracking-tight">System Dashboard & Health</h2>
         <p className="text-xs text-slate-400 mt-0.5">Real-time distributed queue throughput and node utilization</p>
       </div>
 
       {/* Metric Cards Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-        {statCards.map((card, idx) => {
-          const Icon = card.icon;
-          return (
-            <div
-              key={idx}
-              className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 flex flex-col justify-between"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-slate-400">{card.title}</span>
-                <div className={`p-1.5 rounded-lg ${card.bg} ${card.color}`}>
-                  <Icon className="w-4 h-4" />
-                </div>
+        {loading && !metrics
+          ? Array.from({ length: 7 }).map((_, idx) => (
+              <div key={idx} className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
+                <Skeleton className="h-4 w-2/3" />
+                <Skeleton className="h-7 w-1/2" />
               </div>
-              <div className="text-xl font-bold font-mono text-slate-100 mt-2">{card.value}</div>
-            </div>
-          );
-        })}
+            ))
+          : statCards.map((card, idx) => {
+              const Icon = card.icon;
+              return (
+                <div
+                  key={idx}
+                  className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 flex flex-col justify-between hover:border-slate-700 hover:shadow-lg transition-all"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-slate-400">{card.title}</span>
+                    <div className={`p-1.5 rounded-lg ${card.bg} ${card.color}`}>
+                      <Icon className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="text-xl font-bold font-mono text-slate-100 mt-2">{card.value}</div>
+                </div>
+              );
+            })}
       </div>
 
       {/* Throughput Chart */}
-      <div className="p-5 rounded-xl bg-slate-900 border border-slate-800">
+      <div className="p-5 rounded-xl bg-slate-900 border border-slate-800 shadow-xl">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-brand-500" />
+              <TrendingUp className="w-4 h-4 text-indigo-400" />
               Job Execution Throughput (Last 24 Hours)
             </h3>
             <p className="text-xs text-slate-500">Hourly completed vs failed job attempts</p>
@@ -146,91 +150,101 @@ export const OverviewView: React.FC = () => {
         </div>
 
         <div className="h-64 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={throughput}>
-              <defs>
-                <linearGradient id="completedGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#22c55e" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="failedGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-              <XAxis dataKey="hour" stroke="#64748b" fontSize={11} />
-              <YAxis stroke="#64748b" fontSize={11} />
-              <Tooltip
-                contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px' }}
-                itemStyle={{ fontSize: '12px' }}
-              />
-              <Area
-                type="monotone"
-                dataKey="completed"
-                stroke="#22c55e"
-                fillOpacity={1}
-                fill="url(#completedGrad)"
-                name="Completed"
-              />
-              <Area
-                type="monotone"
-                dataKey="failed"
-                stroke="#f43f5e"
-                fillOpacity={1}
-                fill="url(#failedGrad)"
-                name="Failed"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+          {loading && throughput.length === 0 ? (
+            <div className="h-full flex items-center justify-center">
+              <Skeleton className="h-48 w-full rounded-xl" />
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={throughput}>
+                <defs>
+                  <linearGradient id="completedGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#22c55e" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="failedGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                <XAxis dataKey="hour" stroke="#64748b" fontSize={11} />
+                <YAxis stroke="#64748b" fontSize={11} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px' }}
+                  itemStyle={{ fontSize: '12px' }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="completed"
+                  stroke="#22c55e"
+                  fillOpacity={1}
+                  fill="url(#completedGrad)"
+                  name="Completed"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="failed"
+                  stroke="#f43f5e"
+                  fillOpacity={1}
+                  fill="url(#failedGrad)"
+                  name="Failed"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 
       {/* Active Queues Summary */}
-      <div className="p-5 rounded-xl bg-slate-900 border border-slate-800">
+      <div className="p-5 rounded-xl bg-slate-900 border border-slate-800 shadow-xl">
         <h3 className="text-sm font-semibold text-slate-100 mb-3">Live Queues Status</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-850 text-slate-400 border-b border-slate-800">
-              <tr>
-                <th className="p-3 font-medium">Queue Name</th>
-                <th className="p-3 font-medium">Priority</th>
-                <th className="p-3 font-medium">Concurrency</th>
-                <th className="p-3 font-medium">State</th>
-                <th className="p-3 font-medium">Queued</th>
-                <th className="p-3 font-medium">Running</th>
-                <th className="p-3 font-medium">Completed</th>
-                <th className="p-3 font-medium">Failed</th>
-                <th className="p-3 font-medium">Avg Duration</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60">
-              {queues.map((q) => (
-                <tr key={q.id} className="hover:bg-slate-850/50">
-                  <td className="p-3 font-mono font-medium text-slate-200">{q.name}</td>
-                  <td className="p-3 font-mono">{q.priority}</td>
-                  <td className="p-3 font-mono">{q.concurrencyLimit}</td>
-                  <td className="p-3">
-                    <span
-                      className={`px-2 py-0.5 rounded text-xs font-mono ${
-                        q.isPaused
-                          ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                          : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                      }`}
-                    >
-                      {q.isPaused ? 'PAUSED' : 'ACTIVE'}
-                    </span>
-                  </td>
-                  <td className="p-3 font-mono text-sky-400">{q.statistics?.queuedCount ?? 0}</td>
-                  <td className="p-3 font-mono text-amber-400">{q.statistics?.runningCount ?? 0}</td>
-                  <td className="p-3 font-mono text-emerald-400">{q.statistics?.completedCount ?? 0}</td>
-                  <td className="p-3 font-mono text-rose-400">{q.statistics?.failedCount ?? 0}</td>
-                  <td className="p-3 font-mono text-slate-400">{q.statistics?.avgDurationMs ?? 0}ms</td>
+        {loading && queues.length === 0 ? (
+          <TableSkeleton rows={3} cols={6} />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-850 text-slate-400 border-b border-slate-800 font-medium">
+                <tr>
+                  <th className="p-3.5">Queue Name</th>
+                  <th className="p-3.5">Priority</th>
+                  <th className="p-3.5">Concurrency</th>
+                  <th className="p-3.5">State</th>
+                  <th className="p-3.5">Queued</th>
+                  <th className="p-3.5">Running</th>
+                  <th className="p-3.5">Completed</th>
+                  <th className="p-3.5">Failed</th>
+                  <th className="p-3.5">Avg Duration</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60">
+                {queues.map((q) => (
+                  <tr key={q.id} className="hover:bg-slate-850/50 transition-colors">
+                    <td className="p-3.5 font-mono font-medium text-slate-200">{q.name}</td>
+                    <td className="p-3.5 font-mono">{q.priority}</td>
+                    <td className="p-3.5 font-mono">{q.concurrencyLimit}</td>
+                    <td className="p-3.5">
+                      <span
+                        className={`px-2 py-0.5 rounded text-xs font-mono ${
+                          q.isPaused
+                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                            : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                        }`}
+                      >
+                        {q.isPaused ? 'PAUSED' : 'ACTIVE'}
+                      </span>
+                    </td>
+                    <td className="p-3.5 font-mono text-sky-400">{q.statistics?.queuedCount ?? 0}</td>
+                    <td className="p-3.5 font-mono text-amber-400">{q.statistics?.runningCount ?? 0}</td>
+                    <td className="p-3.5 font-mono text-emerald-400">{q.statistics?.completedCount ?? 0}</td>
+                    <td className="p-3.5 font-mono text-rose-400">{q.statistics?.failedCount ?? 0}</td>
+                    <td className="p-3.5 font-mono text-slate-400">{q.statistics?.avgDurationMs ?? 0}ms</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

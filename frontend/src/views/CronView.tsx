@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { apiClient } from '../api/client.js';
 import { Plus, RefreshCw, ToggleLeft, ToggleRight, Trash2 } from 'lucide-react';
+import { TableSkeleton } from '../components/Skeleton.js';
 
 export const CronView: React.FC = () => {
   const [cronJobs, setCronJobs] = useState<any[]>([]);
   const [queues, setQueues] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newCron, setNewCron] = useState({
     name: '',
@@ -15,31 +18,33 @@ export const CronView: React.FC = () => {
     payloadJson: '{\n  "reportType": "automated_health"\n}',
   });
 
-  const fetchCronJobs = async () => {
+  const fetchCronJobs = async (showSpin = false) => {
+    if (showSpin) setIsRefreshing(true);
     try {
-      const projectsRes: any = await apiClient.get('/projects');
-      const projectId = projectsRes.data[0]?.id;
-      if (!projectId) return;
-
       const [cronRes, queuesRes]: any = await Promise.all([
-        apiClient.get('/scheduled-jobs', { params: { projectId } }),
+        apiClient.get('/scheduled-jobs'),
         apiClient.get('/queues'),
       ]);
       setCronJobs(cronRes.data || []);
       setQueues(queuesRes.data || []);
     } catch (err) {
       console.error('Failed to load scheduled cron jobs:', err);
+    } finally {
+      setLoading(false);
+      if (showSpin) {
+        setTimeout(() => setIsRefreshing(false), 500);
+      }
     }
   };
 
   useEffect(() => {
-    fetchCronJobs();
+    fetchCronJobs(false);
   }, []);
 
   const handleToggle = async (id: string, currentActive: boolean) => {
     try {
       await apiClient.patch(`/scheduled-jobs/${id}/toggle`, { isActive: !currentActive });
-      await fetchCronJobs();
+      await fetchCronJobs(false);
     } catch (err) {
       console.error('Failed to toggle cron job:', err);
     }
@@ -49,7 +54,7 @@ export const CronView: React.FC = () => {
     if (!confirm('Are you sure you want to delete this scheduled job?')) return;
     try {
       await apiClient.delete(`/scheduled-jobs/${id}`);
-      await fetchCronJobs();
+      await fetchCronJobs(false);
     } catch (err) {
       console.error('Failed to delete scheduled job:', err);
     }
@@ -89,7 +94,7 @@ export const CronView: React.FC = () => {
         handlerType: 'CUSTOM_COMPUTE',
         payloadJson: '{\n  "reportType": "automated_health"\n}',
       });
-      await fetchCronJobs();
+      await fetchCronJobs(false);
     } catch (err: any) {
       alert(`Error creating scheduled job: ${err.message || 'Validation error'}`);
     }
@@ -99,20 +104,20 @@ export const CronView: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-slate-100">Recurring Scheduled Jobs (Cron)</h2>
+          <h2 className="text-xl font-bold text-slate-100 tracking-tight">Recurring Scheduled Jobs (Cron)</h2>
           <p className="text-xs text-slate-400 mt-0.5">Automated time-based recurring job dispatch with timezone support</p>
         </div>
         <div className="flex space-x-3">
           <button
-            onClick={fetchCronJobs}
-            className="flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-slate-850 border border-slate-800 text-xs font-medium text-slate-300 hover:bg-slate-800"
+            onClick={() => fetchCronJobs(true)}
+            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-lg bg-slate-850 border border-slate-700/60 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white hover:border-slate-600 active:scale-[0.97] transition-all shadow-sm duration-200 cursor-pointer"
           >
-            <RefreshCw className="w-3.5 h-3.5" />
+            <RefreshCw className={`w-3.5 h-3.5 transition-transform duration-500 ${isRefreshing ? 'animate-spin text-indigo-400' : 'text-slate-400'}`} />
             <span>Refresh</span>
           </button>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-brand-600 text-white text-xs font-medium hover:bg-brand-500 transition-colors"
+            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-[0.98] text-white text-xs font-medium transition-all shadow-md shadow-indigo-900/30 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>New Cron Trigger</span>
@@ -121,69 +126,73 @@ export const CronView: React.FC = () => {
       </div>
 
       {/* Cron Jobs Table */}
-      <div className="rounded-xl bg-slate-900 border border-slate-800 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-850 text-slate-400 border-b border-slate-800">
-              <tr>
-                <th className="p-3 font-medium">Job Name</th>
-                <th className="p-3 font-medium">Queue</th>
-                <th className="p-3 font-medium">Cron Expression</th>
-                <th className="p-3 font-medium">Timezone</th>
-                <th className="p-3 font-medium">Next Run At</th>
-                <th className="p-3 font-medium">Active</th>
-                <th className="p-3 font-medium text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60">
-              {cronJobs.length === 0 ? (
+      <div className="rounded-xl bg-slate-900 border border-slate-800 shadow-xl overflow-hidden">
+        {loading && cronJobs.length === 0 ? (
+          <TableSkeleton rows={3} cols={7} />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-850 text-slate-400 border-b border-slate-800 font-medium">
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-slate-500">
-                    No recurring scheduled cron jobs configured.
-                  </td>
+                  <th className="p-3.5">Job Name</th>
+                  <th className="p-3.5">Queue</th>
+                  <th className="p-3.5">Cron Expression</th>
+                  <th className="p-3.5">Timezone</th>
+                  <th className="p-3.5">Next Run At</th>
+                  <th className="p-3.5">Active</th>
+                  <th className="p-3.5 text-right">Actions</th>
                 </tr>
-              ) : (
-                cronJobs.map((job) => (
-                  <tr key={job.id} className="hover:bg-slate-800/50">
-                    <td className="p-3 font-medium text-slate-200">{job.name}</td>
-                    <td className="p-3 font-mono text-slate-300">{job.queue?.name}</td>
-                    <td className="p-3 font-mono font-bold text-brand-400">{job.cronExpression}</td>
-                    <td className="p-3 font-mono text-slate-400">{job.timezone}</td>
-                    <td className="p-3 font-mono text-slate-300">
-                      {new Date(job.nextRunAt).toLocaleString()}
-                    </td>
-                    <td className="p-3">
-                      <button
-                        onClick={() => handleToggle(job.id, job.isActive)}
-                        className="text-slate-400 hover:text-slate-200"
-                      >
-                        {job.isActive ? (
-                          <ToggleRight className="w-6 h-6 text-brand-500" />
-                        ) : (
-                          <ToggleLeft className="w-6 h-6 text-slate-600" />
-                        )}
-                      </button>
-                    </td>
-                    <td className="p-3 text-right">
-                      <button
-                        onClick={() => handleDelete(job.id)}
-                        className="p-1.5 rounded bg-slate-800 hover:bg-rose-950 text-slate-400 hover:text-rose-400 ml-auto"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60">
+                {cronJobs.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="p-8 text-center text-slate-500">
+                      No recurring scheduled cron jobs configured.
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ) : (
+                  cronJobs.map((job) => (
+                    <tr key={job.id} className="hover:bg-slate-850/50 transition-colors">
+                      <td className="p-3.5 font-medium text-slate-200">{job.name}</td>
+                      <td className="p-3.5 font-mono text-slate-300">{job.queue?.name}</td>
+                      <td className="p-3.5 font-mono font-bold text-indigo-400">{job.cronExpression}</td>
+                      <td className="p-3.5 font-mono text-slate-400">{job.timezone}</td>
+                      <td className="p-3.5 font-mono text-slate-300">
+                        {new Date(job.nextRunAt).toLocaleString()}
+                      </td>
+                      <td className="p-3.5">
+                        <button
+                          onClick={() => handleToggle(job.id, job.isActive)}
+                          className="text-slate-400 hover:text-slate-200 transition-colors"
+                        >
+                          {job.isActive ? (
+                            <ToggleRight className="w-6 h-6 text-indigo-500" />
+                          ) : (
+                            <ToggleLeft className="w-6 h-6 text-slate-600" />
+                          )}
+                        </button>
+                      </td>
+                      <td className="p-3.5 text-right">
+                        <button
+                          onClick={() => handleDelete(job.id)}
+                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-950 text-slate-400 hover:text-rose-400 active:scale-95 transition-all ml-auto"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Create Cron Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl max-w-md w-full p-6 space-y-4 text-xs">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl max-w-md w-full p-6 space-y-4 text-xs shadow-2xl">
             <h3 className="text-base font-semibold text-slate-100">Create Recurring Cron Trigger</h3>
             <form onSubmit={handleCreate} className="space-y-3">
               <div>
@@ -194,7 +203,7 @@ export const CronView: React.FC = () => {
                   value={newCron.name}
                   onChange={(e) => setNewCron({ ...newCron, name: e.target.value })}
                   placeholder="e.g. Daily Data Backup"
-                  className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-200 focus:outline-none focus:border-brand-500"
+                  className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-200 focus:outline-none focus:border-indigo-500"
                 />
               </div>
 
@@ -204,7 +213,7 @@ export const CronView: React.FC = () => {
                   <select
                     value={newCron.queueId}
                     onChange={(e) => setNewCron({ ...newCron, queueId: e.target.value })}
-                    className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-200 focus:outline-none focus:border-brand-500"
+                    className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-200 focus:outline-none focus:border-indigo-500"
                   >
                     {queues.map((q) => (
                       <option key={q.id} value={q.id}>
@@ -221,7 +230,7 @@ export const CronView: React.FC = () => {
                     value={newCron.cronExpression}
                     onChange={(e) => setNewCron({ ...newCron, cronExpression: e.target.value })}
                     placeholder="*/15 * * * *"
-                    className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 font-mono text-brand-400 focus:outline-none focus:border-brand-500"
+                    className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 font-mono text-indigo-400 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
               </div>
@@ -232,7 +241,7 @@ export const CronView: React.FC = () => {
                   rows={3}
                   value={newCron.payloadJson}
                   onChange={(e) => setNewCron({ ...newCron, payloadJson: e.target.value })}
-                  className="mt-1 w-full p-3 rounded-lg bg-slate-950 border border-slate-800 font-mono text-slate-300 focus:outline-none focus:border-brand-500"
+                  className="mt-1 w-full p-3 rounded-lg bg-slate-950 border border-slate-800 font-mono text-slate-300 focus:outline-none focus:border-indigo-500"
                 />
               </div>
 
@@ -240,13 +249,13 @@ export const CronView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 rounded-lg bg-slate-800 text-slate-400 hover:text-slate-200"
+                  className="px-4 py-2 rounded-lg bg-slate-800 text-slate-400 hover:text-slate-200 active:scale-[0.98] transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-lg bg-brand-600 text-white font-medium hover:bg-brand-500"
+                  className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-[0.98] text-white font-medium shadow-md shadow-indigo-900/30 transition-all"
                 >
                   Create Cron
                 </button>

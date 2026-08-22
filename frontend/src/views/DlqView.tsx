@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { apiClient } from '../api/client.js';
 import { AlertOctagon, RotateCcw, RefreshCw, X, FileText } from 'lucide-react';
+import { TableSkeleton } from '../components/Skeleton.js';
 
 export const DlqView: React.FC = () => {
   const [dlqItems, setDlqItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [replayingId, setReplayingId] = useState<string | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<any | null>(null);
@@ -16,6 +18,7 @@ export const DlqView: React.FC = () => {
     } catch (err) {
       console.error('Failed to fetch DLQ items:', err);
     } finally {
+      setLoading(false);
       if (showSpin) {
         setTimeout(() => setIsRefreshing(false), 500);
       }
@@ -45,115 +48,119 @@ export const DlqView: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-slate-100">Dead Letter Queue (DLQ) Quarantine</h2>
+          <h2 className="text-xl font-bold text-slate-100 tracking-tight">Dead Letter Queue (DLQ) Quarantine</h2>
           <p className="text-xs text-slate-400 mt-0.5">Quarantined jobs that exhausted all retry policies with diagnostic error payloads</p>
         </div>
         <button
           onClick={() => fetchDlq(true)}
-          className="flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-slate-850 border border-slate-800 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-slate-100 transition-colors"
+          className="flex items-center space-x-1.5 px-3.5 py-2 rounded-lg bg-slate-850 border border-slate-700/60 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 hover:border-slate-600 active:scale-[0.97] transition-all shadow-sm duration-200 cursor-pointer"
         >
-          <RefreshCw className={`w-3.5 h-3.5 transition-transform duration-500 ${isRefreshing ? 'animate-spin text-brand-400' : ''}`} />
+          <RefreshCw className={`w-3.5 h-3.5 transition-transform duration-500 ${isRefreshing ? 'animate-spin text-indigo-400' : 'text-slate-400'}`} />
           <span>Refresh</span>
         </button>
       </div>
 
-      {/* DLQ Table */}
-      <div className="rounded-xl bg-slate-900 border border-slate-800 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-850 text-slate-400 border-b border-slate-800">
-              <tr>
-                <th className="p-3 font-medium">Job Name</th>
-                <th className="p-3 font-medium">Queue</th>
-                <th className="p-3 font-medium">Failure Reason</th>
-                <th className="p-3 font-medium">Attempts</th>
-                <th className="p-3 font-medium">Dead Lettered At</th>
-                <th className="p-3 font-medium text-right">Replay Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60">
-              {dlqItems.length === 0 ? (
+      {/* DLQ Table Card */}
+      <div className="rounded-xl bg-slate-900 border border-slate-800 shadow-xl overflow-hidden">
+        {loading ? (
+          <TableSkeleton rows={4} cols={6} />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-850 text-slate-400 border-b border-slate-800 font-medium">
                 <tr>
-                  <td colSpan={6} className="p-12 text-center text-slate-500">
-                    <div className="flex flex-col items-center justify-center space-y-2">
-                      <AlertOctagon className="w-6 h-6 text-slate-600" />
-                      <div>No quarantined jobs in Dead Letter Queue. Everything is operating cleanly.</div>
-                    </div>
-                  </td>
+                  <th className="p-3.5">Job Name</th>
+                  <th className="p-3.5">Queue</th>
+                  <th className="p-3.5">Failure Reason</th>
+                  <th className="p-3.5">Attempts</th>
+                  <th className="p-3.5">Dead Lettered At</th>
+                  <th className="p-3.5 text-right">Replay Action</th>
                 </tr>
-              ) : (
-                dlqItems.map((item) => {
-                  const isThisReplaying = replayingId === item.id;
-                  return (
-                    <tr
-                      key={item.id}
-                      onClick={() => setSelectedEntry(item)}
-                      className="hover:bg-slate-800/50 cursor-pointer transition-colors"
-                    >
-                      <td className="p-3">
-                        <div className="font-medium text-slate-200">{item.job?.name || 'Unnamed Job'}</div>
-                        <div className="font-mono text-slate-500 text-[10px]">{item.jobId}</div>
-                      </td>
-                      <td className="p-3 font-mono text-slate-300">{item.queue?.name}</td>
-                      <td className="p-3 max-w-xs">
-                        <div className="text-rose-400 font-mono truncate">{item.failureReason}</div>
-                      </td>
-                      <td className="p-3 font-mono text-slate-400">{item.totalAttempts}</td>
-                      <td className="p-3 font-mono text-slate-400">
-                        {new Date(item.deadLetteredAt).toLocaleString()}
-                      </td>
-                      <td className="p-3 text-right">
-                        <button
-                          onClick={(e) => handleReplay(item.id, e)}
-                          className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded bg-brand-600/20 text-brand-400 border border-brand-500/30 hover:bg-brand-600/30 text-xs transition-colors"
-                        >
-                          <RotateCcw className={`w-3 h-3 ${isThisReplaying ? 'animate-spin text-brand-300' : ''}`} />
-                          <span>Replay</span>
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60">
+                {dlqItems.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="p-12 text-center text-slate-500">
+                      <div className="flex flex-col items-center justify-center space-y-2">
+                        <AlertOctagon className="w-8 h-8 text-slate-600" />
+                        <div className="font-medium">No quarantined jobs in Dead Letter Queue. Everything is operating cleanly.</div>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  dlqItems.map((item) => {
+                    const isThisReplaying = replayingId === item.id;
+                    return (
+                      <tr
+                        key={item.id}
+                        onClick={() => setSelectedEntry(item)}
+                        className="hover:bg-slate-850/70 cursor-pointer transition-colors group"
+                      >
+                        <td className="p-3.5">
+                          <div className="font-medium text-slate-200 group-hover:text-indigo-400 transition-colors">{item.job?.name || 'Unnamed Job'}</div>
+                          <div className="font-mono text-slate-500 text-[10px]">{item.jobId}</div>
+                        </td>
+                        <td className="p-3.5 font-mono text-slate-300">{item.queue?.name}</td>
+                        <td className="p-3.5 max-w-xs">
+                          <div className="text-rose-400 font-mono truncate">{item.failureReason}</div>
+                        </td>
+                        <td className="p-3.5 font-mono text-slate-400">{item.totalAttempts}</td>
+                        <td className="p-3.5 font-mono text-slate-400">
+                          {new Date(item.deadLetteredAt).toLocaleString()}
+                        </td>
+                        <td className="p-3.5 text-right">
+                          <button
+                            onClick={(e) => handleReplay(item.id, e)}
+                            className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 hover:border-indigo-500/40 hover:text-indigo-300 active:scale-95 transition-all text-xs font-medium cursor-pointer shadow-sm"
+                          >
+                            <RotateCcw className={`w-3 h-3 transition-transform duration-500 ${isThisReplaying ? 'animate-spin text-indigo-300' : ''}`} />
+                            <span>Replay</span>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Selected DLQ Inspection Drawer */}
       {selectedEntry && (
-        <div className="fixed inset-y-0 right-0 w-full md:w-[500px] bg-slate-900 border-l border-slate-800 z-50 p-6 overflow-y-auto shadow-2xl flex flex-col justify-between">
+        <div className="fixed inset-y-0 right-0 w-full md:w-[500px] bg-slate-900 border-l border-slate-800 z-50 p-6 overflow-y-auto shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-200">
           <div className="space-y-6">
             <div className="flex items-start justify-between">
               <div>
-                <span className="text-[10px] font-mono uppercase text-rose-400">Quarantined DLQ Record</span>
+                <span className="text-[10px] font-mono uppercase text-rose-400 font-semibold tracking-wider">Quarantined DLQ Record</span>
                 <h3 className="text-base font-bold text-slate-100 mt-0.5">{selectedEntry.job?.name}</h3>
                 <div className="font-mono text-xs text-slate-500 mt-0.5">{selectedEntry.jobId}</div>
               </div>
               <button
                 onClick={() => setSelectedEntry(null)}
-                className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-slate-200"
+                className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-700 transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Failure Reason */}
-            <div className="p-3.5 rounded-xl bg-rose-950/20 border border-rose-500/30 space-y-1.5 text-xs">
+            <div className="p-4 rounded-xl bg-rose-950/20 border border-rose-500/30 space-y-1.5 text-xs shadow-inner">
               <div className="font-semibold text-rose-400 flex items-center gap-1.5">
                 <AlertOctagon className="w-4 h-4 text-rose-400" />
                 Failure Reason Diagnostic
               </div>
-              <div className="font-mono text-slate-200 break-words">{selectedEntry.failureReason}</div>
+              <div className="font-mono text-slate-200 break-words leading-relaxed">{selectedEntry.failureReason}</div>
             </div>
 
             {/* Original Payload */}
             <div>
               <h4 className="text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
-                <FileText className="w-3.5 h-3.5 text-brand-500" />
+                <FileText className="w-3.5 h-3.5 text-indigo-400" />
                 Original Job Payload Dump
               </h4>
-              <pre className="p-3 rounded-lg bg-slate-950 border border-slate-800 text-xs font-mono text-slate-300 overflow-x-auto">
+              <pre className="p-3.5 rounded-lg bg-slate-950 border border-slate-800 text-xs font-mono text-slate-300 overflow-x-auto shadow-inner">
                 {JSON.stringify(selectedEntry.originalPayload, null, 2)}
               </pre>
             </div>
@@ -165,14 +172,14 @@ export const DlqView: React.FC = () => {
                 handleReplay(selectedEntry.id, e);
                 setSelectedEntry(null);
               }}
-              className="flex-1 flex items-center justify-center space-x-1.5 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium"
+              className="flex-1 flex items-center justify-center space-x-1.5 py-2.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-[0.98] text-white text-xs font-medium transition-all shadow-lg shadow-indigo-900/30"
             >
               <RotateCcw className={`w-3.5 h-3.5 ${replayingId === selectedEntry.id ? 'animate-spin' : ''}`} />
               <span>Replay & Re-enqueue Now</span>
             </button>
             <button
               onClick={() => setSelectedEntry(null)}
-              className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium"
+              className="px-4 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-[0.98] text-slate-300 text-xs font-medium transition-all border border-slate-700/50"
             >
               Close
             </button>

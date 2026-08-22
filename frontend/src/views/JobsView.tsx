@@ -14,6 +14,7 @@ import {
   Sparkles,
   X,
 } from 'lucide-react';
+import { TableSkeleton } from '../components/Skeleton.js';
 
 export const JobsView: React.FC = () => {
   const [jobs, setJobs] = useState<any[]>([]);
@@ -22,6 +23,7 @@ export const JobsView: React.FC = () => {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [aiSummary, setAiSummary] = useState<any | null>(null);
   const [loadingAi, setLoadingAi] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // Filters
   const [statusFilter, setStatusFilter] = useState('');
@@ -67,6 +69,7 @@ export const JobsView: React.FC = () => {
     } catch (err) {
       console.error('Failed to fetch jobs:', err);
     } finally {
+      setLoading(false);
       if (showSpin) {
         setTimeout(() => setIsRefreshing(false), 500);
       }
@@ -237,14 +240,14 @@ export const JobsView: React.FC = () => {
         <div className="flex space-x-3">
           <button
             onClick={() => fetchJobs(true)}
-            className="flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-slate-850 border border-slate-800 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-slate-100 transition-colors"
+            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-lg bg-slate-850 border border-slate-700/60 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white hover:border-slate-600 active:scale-[0.97] transition-all shadow-sm duration-200 cursor-pointer"
           >
-            <RefreshCw className={`w-3.5 h-3.5 transition-transform duration-500 ${isRefreshing ? 'animate-spin text-brand-400' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 transition-transform duration-500 ${isRefreshing ? 'animate-spin text-indigo-400' : 'text-slate-400'}`} />
             <span>Refresh</span>
           </button>
           <button
             onClick={() => setShowSubmitModal(true)}
-            className="flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-brand-600 text-white text-xs font-medium hover:bg-brand-500 transition-colors"
+            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-[0.98] text-white text-xs font-medium transition-all shadow-md shadow-indigo-900/30 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Submit Job</span>
@@ -303,30 +306,33 @@ export const JobsView: React.FC = () => {
       </div>
 
       {/* Jobs Table */}
-      <div className="rounded-xl bg-slate-900 border border-slate-800 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-850 text-slate-400 border-b border-slate-800">
-              <tr>
-                <th className="p-3 font-medium">Job Name</th>
-                <th className="p-3 font-medium">Queue</th>
-                <th className="p-3 font-medium">Status</th>
-                <th className="p-3 font-medium">Type</th>
-                <th className="p-3 font-medium">Priority</th>
-                <th className="p-3 font-medium">Retries</th>
-                <th className="p-3 font-medium">Run At / Created</th>
-                <th className="p-3 font-medium text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60">
-              {jobs.length === 0 ? (
+      <div className="rounded-xl bg-slate-900 border border-slate-800 shadow-xl overflow-hidden">
+        {loading ? (
+          <TableSkeleton rows={5} cols={8} />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-850 text-slate-400 border-b border-slate-800 font-medium">
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-slate-500">
-                    No jobs found matching the selected filters.
-                  </td>
+                  <th className="p-3.5">Job Name</th>
+                  <th className="p-3.5">Queue</th>
+                  <th className="p-3.5">Status</th>
+                  <th className="p-3.5">Type</th>
+                  <th className="p-3.5">Priority</th>
+                  <th className="p-3.5">Retries</th>
+                  <th className="p-3.5">Run At / Created</th>
+                  <th className="p-3.5 text-right">Actions</th>
                 </tr>
-              ) : (
-                jobs.map((job) => (
+              </thead>
+              <tbody className="divide-y divide-slate-800/60">
+                {jobs.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="p-8 text-center text-slate-500">
+                      No jobs found matching the selected filters.
+                    </td>
+                  </tr>
+                ) : (
+                  jobs.map((job) => (
                   <tr
                     key={job.id}
                     onClick={() => handleInspectJob(job.id)}
@@ -376,7 +382,8 @@ export const JobsView: React.FC = () => {
             </tbody>
           </table>
         </div>
-      </div>
+      )}
+    </div>
 
       {/* Selected Job Drawer / Inspection Modal */}
       {selectedJob && (
