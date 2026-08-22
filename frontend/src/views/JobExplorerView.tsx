@@ -16,6 +16,8 @@ import {
   Terminal,
   ChevronLeft,
   ChevronRight,
+  Layers,
+  Sparkles,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
@@ -42,7 +44,10 @@ export const JobExplorerView: React.FC = () => {
 
   // Ingest Job Modal State
   const [isIngestModalOpen, setIsIngestModalOpen] = useState(false);
+  const [ingestMode, setIngestMode] = useState<'SINGLE' | 'BATCH'>('SINGLE');
   const [isIngesting, setIsIngesting] = useState(false);
+
+  // Single Job Form State
   const [ingestForm, setIngestForm] = useState({
     name: '',
     queueId: '',
@@ -52,6 +57,14 @@ export const JobExplorerView: React.FC = () => {
     priority: 50,
     payloadText: '{\n  "amount": 500,\n  "currency": "USD"\n}',
     idempotencyKey: '',
+  });
+
+  // Batch Job Form State
+  const [batchForm, setBatchForm] = useState({
+    batchName: 'Morning KYC Verification Batch',
+    queueId: '',
+    itemsCount: 5,
+    handlerType: 'KYC_VERIFY',
   });
 
   const fetchJobs = async (showToast = false, showLoader = false) => {
@@ -75,6 +88,7 @@ export const JobExplorerView: React.FC = () => {
 
       if (queuesRes.length > 0 && !ingestForm.queueId) {
         setIngestForm((prev) => ({ ...prev, queueId: queuesRes[0].id }));
+        setBatchForm((prev) => ({ ...prev, queueId: queuesRes[0].id }));
       }
 
       if (showToast) toast.success('Job list refreshed');
@@ -89,11 +103,9 @@ export const JobExplorerView: React.FC = () => {
   useEffect(() => {
     fetchJobs(false, true);
 
-    // Auto-update list in real time whenever worker completes/updates a job
     const unsubscribe = subscribe('job:*', () => fetchJobs(false, false));
     const unsubscribeAll = subscribe('*', () => fetchJobs(false, false));
 
-    // Live background refresh interval every 3s to catch worker updates instantly
     const liveInterval = setInterval(() => {
       fetchJobs(false, false);
     }, 3000);
@@ -140,7 +152,7 @@ export const JobExplorerView: React.FC = () => {
     }
   };
 
-  const handleIngestSubmit = async (e: React.FormEvent) => {
+  const handleIngestSingleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentProject) return;
 
@@ -189,6 +201,38 @@ export const JobExplorerView: React.FC = () => {
     }
   };
 
+  const handleIngestBatchSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentProject) return;
+
+    setIsIngesting(true);
+    try {
+      const childJobs = Array.from({ length: batchForm.itemsCount }).map((_, i) => ({
+        name: `${batchForm.batchName} - Item #${i + 1}`,
+        handlerType: batchForm.handlerType,
+        payload: { itemIndex: i + 1, batch: batchForm.batchName },
+      }));
+
+      await apiRequest('/jobs/batch', {
+        method: 'POST',
+        body: JSON.stringify({
+          projectId: currentProject.id,
+          queueId: batchForm.queueId || queues[0]?.id,
+          batchName: batchForm.batchName,
+          jobs: childJobs,
+        }),
+      });
+
+      toast.success(`Batch of ${batchForm.itemsCount} jobs created & dispatched atomically!`);
+      setIsIngestModalOpen(false);
+      await fetchJobs(false, true);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to ingest batch jobs');
+    } finally {
+      setIsIngesting(false);
+    }
+  };
+
   const statusTabs = [
     { key: 'ALL', label: 'All' },
     { key: 'QUEUED', label: 'Queued' },
@@ -229,7 +273,10 @@ export const JobExplorerView: React.FC = () => {
           <Button
             variant="primary"
             size="sm"
-            onClick={() => setIsIngestModalOpen(true)}
+            onClick={() => {
+              setIngestMode('SINGLE');
+              setIsIngestModalOpen(true);
+            }}
             leftIcon={<Plus className="w-4 h-4" />}
           >
             Ingest Job
@@ -533,152 +580,267 @@ export const JobExplorerView: React.FC = () => {
         )}
       </Modal>
 
-      {/* Ingest Job Modal */}
+      {/* Ingest Job Modal with Single vs Batch Switcher */}
       <Modal
         isOpen={isIngestModalOpen}
         onClose={() => setIsIngestModalOpen(false)}
-        title="Ingest Background Job"
-        description="Dispatch an asynchronous task to the distributed worker fleet"
+        title={ingestMode === 'SINGLE' ? 'Ingest Background Job' : 'Ingest Atomic Batch Jobs'}
+        description={
+          ingestMode === 'SINGLE'
+            ? 'Dispatch an immediate or delayed task to the distributed worker fleet'
+            : 'Atomically spawn a batch parent orchestrator with parallel child items'
+        }
         maxWidth="lg"
       >
-        <form onSubmit={handleIngestSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
-              Job Name *
-            </label>
-            <input
-              type="text"
-              required
-              placeholder="e.g. Settle Ledger Transaction TX_9901"
-              value={ingestForm.name}
-              onChange={(e) => setIngestForm({ ...ingestForm, name: e.target.value })}
-              className="w-full px-3.5 py-2 rounded-lg bg-surface-elevated border border-surface-border text-white text-sm focus:outline-none focus:border-indigo-500"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
-                Target Queue *
-              </label>
-              <select
-                required
-                value={ingestForm.queueId}
-                onChange={(e) => setIngestForm({ ...ingestForm, queueId: e.target.value })}
-                className="w-full px-3.5 py-2 rounded-lg bg-surface-elevated border border-surface-border text-white text-sm focus:outline-none focus:border-indigo-500"
-              >
-                {queues.map((q) => (
-                  <option key={q.id} value={q.id}>
-                    {q.name} (Pri: {q.priority})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
-                Handler Type *
-              </label>
-              <select
-                required
-                value={ingestForm.handlerType}
-                onChange={(e) => setIngestForm({ ...ingestForm, handlerType: e.target.value })}
-                className="w-full px-3.5 py-2 rounded-lg bg-surface-elevated border border-surface-border text-white text-sm focus:outline-none focus:border-indigo-500 font-mono text-xs"
-              >
-                <option value="LEDGER_SETTLEMENT">LEDGER_SETTLEMENT</option>
-                <option value="SEND_NOTIFICATION">SEND_NOTIFICATION</option>
-                <option value="SEND_EMAIL">SEND_EMAIL</option>
-                <option value="KYC_VERIFY">KYC_VERIFY</option>
-                <option value="SYSTEM_HEALTH_CHECK">SYSTEM_HEALTH_CHECK</option>
-                <option value="HOURLY_RECON">HOURLY_RECON</option>
-                <option value="HTTP_WEBHOOK">HTTP_WEBHOOK</option>
-                <option value="FAILING_TASK">FAILING_TASK (Retry/DLQ Test)</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
-                Job Type
-              </label>
-              <select
-                value={ingestForm.jobType}
-                onChange={(e) => setIngestForm({ ...ingestForm, jobType: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg bg-surface-elevated border border-surface-border text-white text-xs focus:outline-none focus:border-indigo-500"
-              >
-                <option value="IMMEDIATE">IMMEDIATE</option>
-                <option value="DELAYED">DELAYED</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
-                Delay (ms)
-              </label>
-              <input
-                type="number"
-                disabled={ingestForm.jobType !== 'DELAYED'}
-                value={ingestForm.delayMs}
-                onChange={(e) => setIngestForm({ ...ingestForm, delayMs: parseInt(e.target.value, 10) || 0 })}
-                className="w-full px-3 py-2 rounded-lg bg-surface-elevated border border-surface-border text-white text-xs focus:outline-none focus:border-indigo-500 font-mono disabled:opacity-40"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
-                Priority
-              </label>
-              <input
-                type="number"
-                min="0"
-                max="100"
-                value={ingestForm.priority}
-                onChange={(e) => setIngestForm({ ...ingestForm, priority: parseInt(e.target.value, 10) || 50 })}
-                className="w-full px-3 py-2 rounded-lg bg-surface-elevated border border-surface-border text-white text-xs focus:outline-none focus:border-indigo-500 font-mono"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
-              JSON Payload
-            </label>
-            <textarea
-              rows={4}
-              value={ingestForm.payloadText}
-              onChange={(e) => setIngestForm({ ...ingestForm, payloadText: e.target.value })}
-              className="w-full px-3.5 py-2 rounded-lg bg-surface-elevated border border-surface-border text-emerald-400 font-mono text-xs focus:outline-none focus:border-indigo-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
-              Idempotency Key (Optional)
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. tx_order_8821"
-              value={ingestForm.idempotencyKey}
-              onChange={(e) => setIngestForm({ ...ingestForm, idempotencyKey: e.target.value })}
-              className="w-full px-3.5 py-2 rounded-lg bg-surface-elevated border border-surface-border text-white text-xs focus:outline-none focus:border-indigo-500 font-mono"
-            />
-          </div>
-
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-surface-border">
-            <Button
+        <div className="space-y-4">
+          {/* Mode Switcher Tabs */}
+          <div className="flex bg-surface-elevated p-1 rounded-xl border border-surface-border">
+            <button
               type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsIngestModalOpen(false)}
+              onClick={() => setIngestMode('SINGLE')}
+              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                ingestMode === 'SINGLE'
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
             >
-              Cancel
-            </Button>
-            <Button type="submit" variant="primary" size="sm" isLoading={isIngesting}>
-              Ingest Job
-            </Button>
+              Single Job
+            </button>
+            <button
+              type="button"
+              onClick={() => setIngestMode('BATCH')}
+              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                ingestMode === 'BATCH'
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5" /> Batch Array
+            </button>
           </div>
-        </form>
+
+          {ingestMode === 'SINGLE' ? (
+            <form onSubmit={handleIngestSingleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                  Job Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Settle Ledger Transaction TX_9901"
+                  value={ingestForm.name}
+                  onChange={(e) => setIngestForm({ ...ingestForm, name: e.target.value })}
+                  className="w-full px-3.5 py-2 rounded-lg bg-surface-elevated border border-surface-border text-white text-sm focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                    Target Queue *
+                  </label>
+                  <select
+                    required
+                    value={ingestForm.queueId}
+                    onChange={(e) => setIngestForm({ ...ingestForm, queueId: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-lg bg-surface-elevated border border-surface-border text-white text-sm focus:outline-none focus:border-indigo-500"
+                  >
+                    {queues.map((q) => (
+                      <option key={q.id} value={q.id}>
+                        {q.name} (Pri: {q.priority})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                    Handler Type *
+                  </label>
+                  <select
+                    required
+                    value={ingestForm.handlerType}
+                    onChange={(e) => setIngestForm({ ...ingestForm, handlerType: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-lg bg-surface-elevated border border-surface-border text-white text-sm focus:outline-none focus:border-indigo-500 font-mono text-xs"
+                  >
+                    <option value="LEDGER_SETTLEMENT">LEDGER_SETTLEMENT</option>
+                    <option value="SEND_NOTIFICATION">SEND_NOTIFICATION</option>
+                    <option value="SEND_EMAIL">SEND_EMAIL</option>
+                    <option value="KYC_VERIFY">KYC_VERIFY</option>
+                    <option value="SYSTEM_HEALTH_CHECK">SYSTEM_HEALTH_CHECK</option>
+                    <option value="HOURLY_RECON">HOURLY_RECON</option>
+                    <option value="HTTP_WEBHOOK">HTTP_WEBHOOK</option>
+                    <option value="FAILING_TASK">FAILING_TASK (Retry/DLQ Test)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                    Job Type
+                  </label>
+                  <select
+                    value={ingestForm.jobType}
+                    onChange={(e) => setIngestForm({ ...ingestForm, jobType: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg bg-surface-elevated border border-surface-border text-white text-xs focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="IMMEDIATE">IMMEDIATE</option>
+                    <option value="DELAYED">DELAYED</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                    Delay (ms)
+                  </label>
+                  <input
+                    type="number"
+                    disabled={ingestForm.jobType !== 'DELAYED'}
+                    value={ingestForm.delayMs}
+                    onChange={(e) => setIngestForm({ ...ingestForm, delayMs: parseInt(e.target.value, 10) || 0 })}
+                    className="w-full px-3 py-2 rounded-lg bg-surface-elevated border border-surface-border text-white text-xs focus:outline-none focus:border-indigo-500 font-mono disabled:opacity-40"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                    Priority
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={ingestForm.priority}
+                    onChange={(e) => setIngestForm({ ...ingestForm, priority: parseInt(e.target.value, 10) || 50 })}
+                    className="w-full px-3 py-2 rounded-lg bg-surface-elevated border border-surface-border text-white text-xs focus:outline-none focus:border-indigo-500 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                  JSON Payload
+                </label>
+                <textarea
+                  rows={3}
+                  value={ingestForm.payloadText}
+                  onChange={(e) => setIngestForm({ ...ingestForm, payloadText: e.target.value })}
+                  className="w-full px-3.5 py-2 rounded-lg bg-surface-elevated border border-surface-border text-emerald-400 font-mono text-xs focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                  Idempotency Key (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. tx_order_8821"
+                  value={ingestForm.idempotencyKey}
+                  onChange={(e) => setIngestForm({ ...ingestForm, idempotencyKey: e.target.value })}
+                  className="w-full px-3.5 py-2 rounded-lg bg-surface-elevated border border-surface-border text-white text-xs focus:outline-none focus:border-indigo-500 font-mono"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-surface-border">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsIngestModalOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" variant="primary" size="sm" isLoading={isIngesting}>
+                  Ingest Job
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <form onSubmit={handleIngestBatchSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                  Batch Workflow Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Morning KYC Verification Batch"
+                  value={batchForm.batchName}
+                  onChange={(e) => setBatchForm({ ...batchForm, batchName: e.target.value })}
+                  className="w-full px-3.5 py-2 rounded-lg bg-surface-elevated border border-surface-border text-white text-sm focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                    Target Queue *
+                  </label>
+                  <select
+                    required
+                    value={batchForm.queueId}
+                    onChange={(e) => setBatchForm({ ...batchForm, queueId: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-lg bg-surface-elevated border border-surface-border text-white text-sm focus:outline-none focus:border-indigo-500"
+                  >
+                    {queues.map((q) => (
+                      <option key={q.id} value={q.id}>
+                        {q.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                    Batch Items Count (Child Tasks)
+                  </label>
+                  <select
+                    value={batchForm.itemsCount}
+                    onChange={(e) => setBatchForm({ ...batchForm, itemsCount: parseInt(e.target.value, 10) })}
+                    className="w-full px-3.5 py-2 rounded-lg bg-surface-elevated border border-surface-border text-white text-sm focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value={3}>3 Parallel Tasks</option>
+                    <option value={5}>5 Parallel Tasks</option>
+                    <option value={10}>10 Parallel Tasks</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                  Child Tasks Handler Type
+                </label>
+                <select
+                  value={batchForm.handlerType}
+                  onChange={(e) => setBatchForm({ ...batchForm, handlerType: e.target.value })}
+                  className="w-full px-3.5 py-2 rounded-lg bg-surface-elevated border border-surface-border text-white text-sm focus:outline-none focus:border-indigo-500 font-mono text-xs"
+                >
+                  <option value="KYC_VERIFY">KYC_VERIFY</option>
+                  <option value="SEND_EMAIL">SEND_EMAIL</option>
+                  <option value="LEDGER_SETTLEMENT">LEDGER_SETTLEMENT</option>
+                  <option value="SEND_NOTIFICATION">SEND_NOTIFICATION</option>
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-surface-border">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsIngestModalOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" variant="primary" size="sm" isLoading={isIngesting}>
+                  Ingest Batch ({batchForm.itemsCount} Tasks)
+                </Button>
+              </div>
+            </form>
+          )}
+        </div>
       </Modal>
     </div>
   );
