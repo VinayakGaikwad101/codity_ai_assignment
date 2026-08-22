@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext.js';
 import { useWebSocket } from '../context/WebSocketContext.js';
 import { apiRequest } from '../api/client.js';
@@ -13,10 +13,7 @@ import {
   Eye,
   RotateCcw,
   Ban,
-  Clock,
   Terminal,
-  Activity,
-  Layers,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -181,17 +178,18 @@ export const JobExplorerView: React.FC = () => {
   };
 
   const statusTabs = [
-    'ALL',
-    'QUEUED',
-    'RUNNING',
-    'COMPLETED',
-    'FAILED',
-    'DEAD_LETTERED',
-    'SCHEDULED',
-    'CANCELLED',
+    { key: 'ALL', label: 'All' },
+    { key: 'QUEUED', label: 'Queued' },
+    { key: 'RUNNING', label: 'Running' },
+    { key: 'COMPLETED', label: 'Completed' },
+    { key: 'FAILED', label: 'Failed' },
+    { key: 'DEAD_LETTERED', label: 'Dead Lettered' },
+    { key: 'SCHEDULED', label: 'Scheduled' },
+    { key: 'CANCELLED', label: 'Cancelled' },
   ];
 
   const showSkeleton = isLoading || isRefreshing;
+  const currentTabLabel = statusTabs.find((t) => t.key === statusFilter)?.label || statusFilter;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -233,21 +231,21 @@ export const JobExplorerView: React.FC = () => {
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
           {statusTabs.map((tab) => (
             <button
-              key={tab}
+              key={tab.key}
               onClick={() => {
-                if (statusFilter !== tab) {
+                if (statusFilter !== tab.key) {
                   setIsLoading(true);
-                  setStatusFilter(tab);
+                  setStatusFilter(tab.key);
                   setPage(1);
                 }
               }}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all duration-150 cursor-pointer ${
-                statusFilter === tab
+                statusFilter === tab.key
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                   : 'text-slate-400 hover:text-white hover:bg-surface-elevated'
               }`}
             >
-              {tab}
+              {tab.label}
             </button>
           ))}
         </div>
@@ -293,7 +291,7 @@ export const JobExplorerView: React.FC = () => {
               ) : jobs.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-20 text-center text-slate-400">
-                    No jobs match the current filter <span className="text-indigo-400 font-semibold">&quot;{statusFilter}&quot;</span>.
+                    No jobs found in <span className="text-indigo-400 font-semibold">&quot;{currentTabLabel}&quot;</span>.
                   </td>
                 </tr>
               ) : (
@@ -374,16 +372,22 @@ export const JobExplorerView: React.FC = () => {
         {/* Pagination Footer */}
         <div className="p-4 border-t border-surface-border bg-surface-elevated/40 flex items-center justify-between text-xs text-slate-400">
           <div>
-            Showing <strong className="text-white">{jobs.length > 0 ? (page - 1) * limit + 1 : 0}</strong> to{' '}
-            <strong className="text-white">{Math.min(page * limit, totalJobs)}</strong> of{' '}
-            <strong className="text-white">{totalJobs}</strong> jobs
+            {totalJobs > 0 ? (
+              <>
+                Showing <strong className="text-white">{(page - 1) * limit + 1}</strong> to{' '}
+                <strong className="text-white">{Math.min(page * limit, totalJobs)}</strong> of{' '}
+                <strong className="text-white">{totalJobs}</strong> jobs
+              </>
+            ) : (
+              <span>0 jobs found</span>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
-              disabled={page <= 1 || showSkeleton}
+              disabled={page <= 1 || showSkeleton || totalJobs === 0}
               onClick={() => {
                 setIsLoading(true);
                 setPage((p) => Math.max(1, p - 1));
@@ -394,13 +398,13 @@ export const JobExplorerView: React.FC = () => {
             </Button>
 
             <span className="px-3 py-1 bg-surface border border-surface-border rounded-lg text-xs font-mono font-bold text-white">
-              {page} / {totalPages}
+              {totalJobs > 0 ? `${page} / ${totalPages}` : '1 / 1'}
             </span>
 
             <Button
               variant="outline"
               size="sm"
-              disabled={page >= totalPages || showSkeleton}
+              disabled={page >= totalPages || showSkeleton || totalJobs === 0}
               onClick={() => {
                 setIsLoading(true);
                 setPage((p) => Math.min(totalPages, p + 1));

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAuth } from '../../context/AuthContext.js';
 import { useWebSocket } from '../../context/WebSocketContext.js';
-import { Radio, ChevronDown, LogOut, User as UserIcon, Building2 } from 'lucide-react';
+import { LogOut, Building2 } from 'lucide-react';
 import { clsx } from 'clsx';
 
 interface HeaderProps {
@@ -61,16 +61,18 @@ export const Header: React.FC<HeaderProps> = ({ onOpenProjectModal }) => {
         {/* User Card */}
         <div className="flex items-center gap-3 pl-4 border-l border-surface-border">
           <div className="w-8 h-8 rounded-full bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-xs font-bold text-indigo-300">
-            {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+            {user?.name ? user.name.charAt(0).toUpperCase() : 'V'}
           </div>
           <div className="text-left hidden sm:block">
-            <div className="text-xs font-bold text-white">{user?.name || 'Vinayak Gaikwad'}</div>
-            <div className="text-[10px] text-slate-400 uppercase tracking-wider">{user?.role || 'ADMIN'}</div>
+            <div className="text-xs font-bold text-white leading-tight">{user?.name || 'Vinayak Gaikwad'}</div>
+            <div className="text-[10px] text-slate-400 font-medium tracking-wide">
+              {user?.role === 'ADMIN' ? 'Administrator' : user?.role || 'Operator'}
+            </div>
           </div>
           <button
             onClick={logout}
-            title="Log out"
-            className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-surface-elevated rounded-lg transition-colors cursor-pointer"
+            title="Sign out"
+            className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-surface-elevated rounded-lg transition-colors cursor-pointer ml-1"
           >
             <LogOut className="w-4 h-4" />
           </button>

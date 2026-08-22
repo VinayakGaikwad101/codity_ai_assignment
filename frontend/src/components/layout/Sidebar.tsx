@@ -38,19 +38,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <aside className="w-64 bg-surface border-r border-surface-border flex flex-col flex-shrink-0 min-h-screen">
       {/* Brand Header */}
       <div className="p-5 border-b border-surface-border flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center shadow-lg shadow-indigo-500/20">
           <Zap className="w-5 h-5 text-white" />
         </div>
         <div>
-          <h1 className="text-sm font-bold text-white tracking-tight">Distributed Scheduler</h1>
-          <span className="text-[11px] text-slate-400 font-mono">v1.0.0 Control Plane</span>
+          <h1 className="text-sm font-bold text-white tracking-tight leading-none">Job Scheduler</h1>
+          <span className="text-[11px] text-slate-400 font-mono mt-0.5 block">Distributed Platform</span>
         </div>
       </div>
 
       {/* Navigation items */}
       <div className="flex-1 px-3 py-4 space-y-1">
-        <div className="px-3 py-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-          Control Plane
+        <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+          Modules
         </div>
         {navItems.map((item) => {
           const Icon = item.icon;
