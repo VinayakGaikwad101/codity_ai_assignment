@@ -11,7 +11,8 @@ import {
   Activity,
   RefreshCw,
   Clock,
-  Trash2,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
@@ -20,6 +21,8 @@ export const WorkersView: React.FC = () => {
   const { subscribe } = useWebSocket();
   const [workers, setWorkers] = useState<any[]>([]);
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'HEALTHY' | 'OFFLINE'>('ALL');
+  const [page, setPage] = useState(1);
+  const [limit] = useState(6);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
@@ -50,6 +53,8 @@ export const WorkersView: React.FC = () => {
     return true;
   });
 
+  const totalPages = Math.ceil(filteredWorkers.length / limit) || 1;
+  const paginatedWorkers = filteredWorkers.slice((page - 1) * limit, page * limit);
   const showSkeleton = isLoading || isRefreshing;
 
   return (
@@ -81,7 +86,10 @@ export const WorkersView: React.FC = () => {
       {/* Filter Tabs */}
       <div className="flex items-center gap-2">
         <button
-          onClick={() => setStatusFilter('ALL')}
+          onClick={() => {
+            setStatusFilter('ALL');
+            setPage(1);
+          }}
           className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
             statusFilter === 'ALL'
               ? 'bg-indigo-600 text-white shadow-md'
@@ -91,7 +99,10 @@ export const WorkersView: React.FC = () => {
           All Nodes ({workers.length})
         </button>
         <button
-          onClick={() => setStatusFilter('HEALTHY')}
+          onClick={() => {
+            setStatusFilter('HEALTHY');
+            setPage(1);
+          }}
           className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
             statusFilter === 'HEALTHY'
               ? 'bg-emerald-600 text-white shadow-md'
@@ -101,7 +112,10 @@ export const WorkersView: React.FC = () => {
           Healthy ({workers.filter((w) => w.status === 'HEALTHY').length})
         </button>
         <button
-          onClick={() => setStatusFilter('OFFLINE')}
+          onClick={() => {
+            setStatusFilter('OFFLINE');
+            setPage(1);
+          }}
           className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
             statusFilter === 'OFFLINE'
               ? 'bg-slate-700 text-white shadow-md'
@@ -113,109 +127,148 @@ export const WorkersView: React.FC = () => {
       </div>
 
       {/* Worker Fleet Nodes Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {showSkeleton ? (
-          Array.from({ length: 3 }).map((_, i) => <CardSkeleton key={i} />)
-        ) : filteredWorkers.length === 0 ? (
-          <div className="col-span-3 p-12 bg-surface border border-surface-border rounded-2xl text-center space-y-3">
-            <Server className="w-12 h-12 text-slate-500 mx-auto" />
-            <h3 className="text-lg font-bold text-white">No Workers in Current Filter</h3>
-            <p className="text-sm text-slate-400 max-w-md mx-auto">
-              Start background workers via <code className="text-indigo-300 bg-indigo-950/60 px-2 py-0.5 rounded">npm run dev:worker</code> to begin claiming tasks.
-            </p>
-          </div>
-        ) : (
-          filteredWorkers.map((worker) => {
-            const cpu = worker.latestMetrics?.cpuUsage || 0;
-            const memory = worker.latestMetrics?.memoryUsage || 0;
-            const activeJobs = worker.activeJobsCount || 0;
-            const concurrency = worker.concurrencyLimit || 5;
-            const capacityPct = Math.min(100, Math.round((activeJobs / concurrency) * 100));
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 min-h-[300px]">
+          {showSkeleton ? (
+            Array.from({ length: 3 }).map((_, i) => <CardSkeleton key={i} />)
+          ) : paginatedWorkers.length === 0 ? (
+            <div className="col-span-3 p-12 bg-surface border border-surface-border rounded-2xl text-center space-y-3">
+              <Server className="w-12 h-12 text-slate-500 mx-auto" />
+              <h3 className="text-lg font-bold text-white">No Workers in Current Filter</h3>
+              <p className="text-sm text-slate-400 max-w-md mx-auto">
+                Start background workers via <code className="text-indigo-300 bg-indigo-950/60 px-2 py-0.5 rounded">npm run dev:worker</code> to begin claiming tasks.
+              </p>
+            </div>
+          ) : (
+            paginatedWorkers.map((worker) => {
+              const cpu = worker.latestMetrics?.cpuUsage || 0;
+              const memory = worker.latestMetrics?.memoryUsage || 0;
+              const activeJobs = worker.activeJobsCount || 0;
+              const concurrency = worker.concurrencyLimit || 5;
+              const capacityPct = Math.min(100, Math.round((activeJobs / concurrency) * 100));
 
-            return (
-              <div
-                key={worker.id}
-                className="bg-surface border border-surface-border hover:border-slate-600 rounded-2xl p-5 space-y-5 transition-all duration-200 shadow-xl"
+              return (
+                <div
+                  key={worker.id}
+                  className="bg-surface border border-surface-border hover:border-slate-600 rounded-2xl p-5 space-y-5 transition-all duration-200 shadow-xl"
+                >
+                  {/* Node Top info */}
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-indigo-600/15 border border-indigo-500/20 flex items-center justify-center">
+                        <Server className="w-5 h-5 text-indigo-400" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-white">{worker.hostname}</h3>
+                        <p className="text-[11px] text-slate-400 font-mono">{worker.ipAddress || '127.0.0.1'}</p>
+                      </div>
+                    </div>
+                    <Badge variant={worker.status}>{worker.status}</Badge>
+                  </div>
+
+                  {/* Slot Capacity Meter */}
+                  <div className="space-y-2 bg-surface-elevated/60 p-3.5 rounded-xl border border-surface-border/50">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-semibold text-slate-300 flex items-center gap-1.5">
+                        <Activity className="w-3.5 h-3.5 text-indigo-400" />
+                        Slot Utilization
+                      </span>
+                      <span className="font-mono text-white font-bold">
+                        {activeJobs} / {concurrency} slots ({capacityPct}%)
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-900 h-2 rounded-full overflow-hidden">
+                      <div
+                        className="bg-gradient-to-r from-indigo-500 to-purple-500 h-full rounded-full transition-all duration-300"
+                        style={{ width: `${capacityPct}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Telemetry Meters (CPU & Memory) */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 bg-surface-elevated/40 rounded-xl border border-surface-border/30 space-y-1.5">
+                      <div className="flex items-center justify-between text-xs text-slate-400">
+                        <span className="flex items-center gap-1">
+                          <Cpu className="w-3.5 h-3.5 text-amber-400" /> CPU
+                        </span>
+                        <span className="font-mono font-bold text-white">{cpu}%</span>
+                      </div>
+                      <div className="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden">
+                        <div
+                          className="bg-amber-400 h-full rounded-full transition-all duration-300"
+                          style={{ width: `${Math.min(100, cpu)}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-surface-elevated/40 rounded-xl border border-surface-border/30 space-y-1.5">
+                      <div className="flex items-center justify-between text-xs text-slate-400">
+                        <span className="flex items-center gap-1">
+                          <HardDrive className="w-3.5 h-3.5 text-emerald-400" /> RAM
+                        </span>
+                        <span className="font-mono font-bold text-white">{memory}%</span>
+                      </div>
+                      <div className="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden">
+                        <div
+                          className="bg-emerald-400 h-full rounded-full transition-all duration-300"
+                          style={{ width: `${Math.min(100, memory)}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Footer Telemetry */}
+                  <div className="flex items-center justify-between pt-3 border-t border-surface-border/50 text-[11px] text-slate-400">
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-slate-500" />
+                      Ping: {formatDistanceToNow(new Date(worker.lastHeartbeatAt), { addSuffix: true })}
+                    </span>
+                    <span className="font-mono">
+                      Total Executed: <strong className="text-white">{worker.totalExecutionsCount}</strong>
+                    </span>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Pagination Footer */}
+        {filteredWorkers.length > 0 && (
+          <div className="p-4 bg-surface border border-surface-border rounded-xl flex items-center justify-between text-xs text-slate-400 shadow-lg">
+            <div>
+              Showing <strong className="text-white">{(page - 1) * limit + 1}</strong> to{' '}
+              <strong className="text-white">{Math.min(page * limit, filteredWorkers.length)}</strong> of{' '}
+              <strong className="text-white">{filteredWorkers.length}</strong> nodes
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1 || showSkeleton}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                leftIcon={<ChevronLeft className="w-3.5 h-3.5" />}
               >
-                {/* Node Top info */}
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-600/15 border border-indigo-500/20 flex items-center justify-center">
-                      <Server className="w-5 h-5 text-indigo-400" />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-white">{worker.hostname}</h3>
-                      <p className="text-[11px] text-slate-400 font-mono">{worker.ipAddress || '127.0.0.1'}</p>
-                    </div>
-                  </div>
-                  <Badge variant={worker.status}>{worker.status}</Badge>
-                </div>
+                Previous
+              </Button>
 
-                {/* Slot Capacity Meter */}
-                <div className="space-y-2 bg-surface-elevated/60 p-3.5 rounded-xl border border-surface-border/50">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-slate-300 flex items-center gap-1.5">
-                      <Activity className="w-3.5 h-3.5 text-indigo-400" />
-                      Slot Utilization
-                    </span>
-                    <span className="font-mono text-white font-bold">
-                      {activeJobs} / {concurrency} slots ({capacityPct}%)
-                    </span>
-                  </div>
-                  <div className="w-full bg-slate-900 h-2 rounded-full overflow-hidden">
-                    <div
-                      className="bg-gradient-to-r from-indigo-500 to-purple-500 h-full rounded-full transition-all duration-300"
-                      style={{ width: `${capacityPct}%` }}
-                    />
-                  </div>
-                </div>
+              <span className="px-3 py-1 bg-surface-elevated border border-surface-border rounded-lg text-xs font-mono font-bold text-white">
+                {page} / {totalPages}
+              </span>
 
-                {/* Telemetry Meters (CPU & Memory) */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 bg-surface-elevated/40 rounded-xl border border-surface-border/30 space-y-1.5">
-                    <div className="flex items-center justify-between text-xs text-slate-400">
-                      <span className="flex items-center gap-1">
-                        <Cpu className="w-3.5 h-3.5 text-amber-400" /> CPU
-                      </span>
-                      <span className="font-mono font-bold text-white">{cpu}%</span>
-                    </div>
-                    <div className="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden">
-                      <div
-                        className="bg-amber-400 h-full rounded-full transition-all duration-300"
-                        style={{ width: `${Math.min(100, cpu)}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-surface-elevated/40 rounded-xl border border-surface-border/30 space-y-1.5">
-                    <div className="flex items-center justify-between text-xs text-slate-400">
-                      <span className="flex items-center gap-1">
-                        <HardDrive className="w-3.5 h-3.5 text-emerald-400" /> RAM
-                      </span>
-                      <span className="font-mono font-bold text-white">{memory}%</span>
-                    </div>
-                    <div className="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden">
-                      <div
-                        className="bg-emerald-400 h-full rounded-full transition-all duration-300"
-                        style={{ width: `${Math.min(100, memory)}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Footer Telemetry */}
-                <div className="flex items-center justify-between pt-3 border-t border-surface-border/50 text-[11px] text-slate-400">
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3 h-3 text-slate-500" />
-                    Ping: {formatDistanceToNow(new Date(worker.lastHeartbeatAt), { addSuffix: true })}
-                  </span>
-                  <span className="font-mono">
-                    Total Executed: <strong className="text-white">{worker.totalExecutionsCount}</strong>
-                  </span>
-                </div>
-              </div>
-            );
-          })
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages || showSkeleton}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                rightIcon={<ChevronRight className="w-3.5 h-3.5" />}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
         )}
       </div>
     </div>
