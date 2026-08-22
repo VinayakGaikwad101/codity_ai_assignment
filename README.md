@@ -4,7 +4,7 @@ An enterprise-grade, high-concurrency distributed job scheduling platform built 
 
 ---
 
-## 🌟 Key Capabilities & Architectural Highlights
+## Key Capabilities & Architectural Highlights
 
 - **Atomic High-Concurrency Worker Engine**: Multi-worker claiming with zero collisions or race conditions using row-level `FOR UPDATE SKIP LOCKED`.
 - **14-Table 3NF Relational Database**: Complete multi-tenant isolation across Organizations, Projects, Queues, Jobs, Executions, and DLQ entries.
@@ -16,7 +16,7 @@ An enterprise-grade, high-concurrency distributed job scheduling platform built 
 
 ---
 
-## 🚀 Quick Start Guide
+## Quick Start Guide
 
 ### 1. Prerequisites
 - **Node.js**: v20.x or higher
@@ -31,7 +31,9 @@ npm install
 Ensure your `.env` contains your database connection string:
 ```env
 DATABASE_URL="postgresql://postgres:postgres@localhost:5433/job_scheduler?schema=public"
-JWT_SECRET="super_secure_enterprise_jwt_secret_key_2026_distributed_job_scheduler_acme"
+JWT_SECRET="super-secret-jwt-key-for-distributed-scheduler-2026"
+GEMINI_API_KEY="your_api_key_here"
+GEMINI_MODEL="gemini-3.1-flash-lite"
 PORT=4000
 NODE_ENV=development
 ```
@@ -44,7 +46,7 @@ npm run prisma:seed --workspace=backend
 
 ---
 
-## 🏃‍♂️ Running the Platform (3 Terminals)
+## Running the Platform (3 Terminals)
 
 ### Terminal 1: Backend REST API & WebSocket Server
 ```bash
@@ -67,7 +69,7 @@ npm run dev:frontend
 
 ---
 
-## 🧪 Running Automated Tests
+## Running Automated Tests
 ```bash
 npx vitest run
 ```
@@ -79,7 +81,7 @@ Executes all integration tests:
 
 ---
 
-## 📚 Deliverables & Documentation Index
+## Deliverables & Documentation Index
 
 - **[System Architecture Document & Mermaid Diagram](docs/architecture.md)**
 - **[14-Table 3NF Database Schema & ER Diagram](docs/database-schema.md)**
