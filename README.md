@@ -39,35 +39,26 @@ Start the PostgreSQL container in the background using Docker Compose:
 ```bash
 docker compose up -d
 ```
-> **Note**: This starts PostgreSQL 16 Alpine on host port `5433:5432` with database name `job_scheduler` and user/password `postgres:postgres`.
+> **Note**: This starts PostgreSQL 16 Alpine on host port `5433:5432` with database name `job_scheduler` and credentials `postgres:postgres`.
 
 ---
 
-### 4. Configure Environment Variables
-Copy the example environment file:
-```bash
-cp .env.example .env
-```
-Ensure your `.env` contains:
-```env
-PORT=4000
-NODE_ENV=development
-DATABASE_URL="postgresql://postgres:postgres@localhost:5433/job_scheduler?schema=public"
-JWT_SECRET="super-secret-jwt-key-for-distributed-scheduler-2026"
-JWT_EXPIRES_IN="7d"
-CORS_ORIGIN="http://localhost:3000"
-WORKER_CONCURRENCY=5
-WORKER_POLL_INTERVAL_MS=1000
-WORKER_HEARTBEAT_INTERVAL_MS=5000
-REAPER_INTERVAL_MS=15000
-GEMINI_API_KEY="your_api_key_here"
-GEMINI_MODEL="gemini-3.1-flash-lite"
-```
+### 4. Create Environment Variables (.env)
+Create your `.env` file from the provided `.env.example`:
+
+- **Windows PowerShell**:
+  ```powershell
+  Copy-Item .env.example .env
+  ```
+- **macOS / Linux / Bash**:
+  ```bash
+  cp .env.example .env
+  ```
 
 ---
 
 ### 5. Initialize & Seed Database Schema
-Push the Prisma schema and seed initial multi-tenant test data:
+Push the Prisma schema to generate the client and seed initial multi-tenant test data:
 ```bash
 npm run prisma:push --workspace=backend
 npm run prisma:seed --workspace=backend
