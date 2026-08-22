@@ -255,17 +255,21 @@ export const DlqView: React.FC = () => {
                       {isExpanded && (
                         <tr className="bg-slate-950/80 border-t border-b border-surface-border">
                           <td colSpan={7} className="p-6 space-y-5">
-                            {/* AI Diagnosis Shimmer Loader */}
+                            {/* Circular Spinner Loader */}
                             {isLoadingAi && (
-                              <div className="p-4 rounded-xl bg-indigo-950/30 border border-indigo-500/30 space-y-3 animate-pulse">
-                                <div className="flex items-center gap-2">
-                                  <Sparkles className="w-4 h-4 text-indigo-400 animate-spin" />
-                                  <span className="text-xs font-bold text-indigo-300 uppercase tracking-wider">
-                                    LangChain & Gemini LLM Analyzing Failure...
+                              <div className="p-6 rounded-xl bg-indigo-950/20 border border-indigo-500/30 flex flex-col items-center justify-center space-y-3 shadow-inner">
+                                <div className="relative">
+                                  <div className="w-10 h-10 rounded-full border-2 border-indigo-500/20 border-t-indigo-400 animate-spin" />
+                                  <Sparkles className="w-4 h-4 text-indigo-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                                </div>
+                                <div className="text-center space-y-0.5">
+                                  <span className="text-xs font-bold text-white block tracking-wide">
+                                    Analyzing Stack Trace with LangChain & Gemini
+                                  </span>
+                                  <span className="text-[11px] text-indigo-300">
+                                    Diagnosing root cause and generating remediation checklist...
                                   </span>
                                 </div>
-                                <div className="h-4 bg-indigo-900/40 rounded w-3/4" />
-                                <div className="h-4 bg-indigo-900/30 rounded w-1/2" />
                               </div>
                             )}
 
