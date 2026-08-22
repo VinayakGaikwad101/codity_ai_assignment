@@ -190,11 +190,17 @@ export class JobService {
     if (projectId) where.projectId = projectId;
     if (queueId) where.queueId = queueId;
     if (status) where.status = status;
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { id: { equals: search } },
-      ];
+    if (search && search.trim().length > 0) {
+      const trimmedSearch = search.trim();
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmedSearch);
+      if (isUuid) {
+        where.OR = [
+          { name: { contains: trimmedSearch, mode: 'insensitive' } },
+          { id: { equals: trimmedSearch } },
+        ];
+      } else {
+        where.name = { contains: trimmedSearch, mode: 'insensitive' };
+      }
     }
 
     const orderBy: any = {};

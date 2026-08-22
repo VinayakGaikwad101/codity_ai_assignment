@@ -27,6 +27,15 @@ export const JobsView: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [queueFilter, setQueueFilter] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // 300ms search input debounce
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
 
   // Submit Job Form State
   const [submitForm, setSubmitForm] = useState({
@@ -44,7 +53,7 @@ export const JobsView: React.FC = () => {
       const params: any = { limit: 50 };
       if (statusFilter) params.status = statusFilter;
       if (queueFilter) params.queueId = queueFilter;
-      if (searchQuery) params.search = searchQuery;
+      if (debouncedSearch && debouncedSearch.trim()) params.search = debouncedSearch.trim();
 
       const [jobsRes, queuesRes]: any = await Promise.all([
         apiClient.get('/jobs', { params }),
@@ -62,7 +71,7 @@ export const JobsView: React.FC = () => {
     fetchJobs();
     const interval = setInterval(fetchJobs, 3000);
     return () => clearInterval(interval);
-  }, [statusFilter, queueFilter, searchQuery]);
+  }, [statusFilter, queueFilter, debouncedSearch]);
 
   const handleInspectJob = async (id: string) => {
     try {
