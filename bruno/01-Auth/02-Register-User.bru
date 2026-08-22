@@ -1,0 +1,20 @@
+meta {
+  name: 02. Register User & Organization
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/auth/register
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "name": "Sarah Connor",
+    "email": "sarah@cyberdyne.io",
+    "password": "SecurePassword@123",
+    "organizationName": "Cyberdyne Systems"
+  }
+}

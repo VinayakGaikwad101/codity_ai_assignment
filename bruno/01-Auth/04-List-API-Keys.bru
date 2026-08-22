@@ -1,0 +1,15 @@
+meta {
+  name: 04. List Organization API Keys
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/auth/api-keys
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
