@@ -25,7 +25,7 @@ interface AuthContextType {
   currentProject: Project | null;
   setCurrentProject: (proj: Project) => void;
   login: (email: string, pass: string) => Promise<void>;
-  register: (name: string, email: string, pass: string, orgName: string) => Promise<void>;
+  register: (name: string, email: string, pass: string, orgName: string, role?: string) => Promise<void>;
   logout: () => void;
   refreshProjects: () => Promise<void>;
   isLoading: boolean;
@@ -53,7 +53,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const data = await apiRequest<Project[]>('/projects');
       setProjects(data);
       if (data.length > 0) {
-        // If current project not set or doesn't belong to current projects list
         const exists = data.find((p) => p.id === currentProject?.id);
         if (!exists) {
           setCurrentProject(data[0]);
@@ -86,7 +85,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (name: string, email: string, pass: string, orgName: string) => {
+  const register = async (name: string, email: string, pass: string, orgName: string, role = 'ADMIN') => {
     const res = await apiRequest<{ user: User; token: string }>('/auth/register', {
       method: 'POST',
       body: JSON.stringify({
@@ -94,6 +93,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email,
         password: pass,
         organizationName: orgName,
+        role,
       }),
     });
 

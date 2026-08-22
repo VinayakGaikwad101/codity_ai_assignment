@@ -12,7 +12,7 @@ import { ApiKeysView } from './views/ApiKeysView.js';
 import { Modal } from './components/ui/Modal.js';
 import { Button } from './components/ui/Button.js';
 import { apiRequest } from './api/client.js';
-import { Zap, Shield, UserPlus, LogIn, Lock } from 'lucide-react';
+import { Zap, UserPlus, LogIn, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 
 export const App: React.FC = () => {
@@ -30,7 +30,9 @@ export const App: React.FC = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('admin@acme.com');
   const [password, setPassword] = useState('Admin@12345');
-  const [orgName, setOrgName] = useState('Acme Corporation');
+  const [orgName, setOrgName] = useState('');
+  const [selectedRole, setSelectedRole] = useState<'ADMIN' | 'OPERATOR' | 'VIEWER'>('ADMIN');
+  const [showPassword, setShowPassword] = useState(false);
   const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
 
   const demoAccounts = [
@@ -42,6 +44,23 @@ export const App: React.FC = () => {
   const handleSelectDemoAccount = (acc: typeof demoAccounts[0]) => {
     setEmail(acc.email);
     setPassword('Admin@12345');
+  };
+
+  const handleSwitchToRegister = () => {
+    setAuthMode('REGISTER');
+    setName('');
+    setEmail('');
+    setPassword('');
+    setOrgName('');
+    setSelectedRole('ADMIN');
+    setShowPassword(false);
+  };
+
+  const handleSwitchToLogin = () => {
+    setAuthMode('LOGIN');
+    setEmail('admin@acme.com');
+    setPassword('Admin@12345');
+    setShowPassword(false);
   };
 
   const handleCreateProjectSubmit = async (e: React.FormEvent) => {
@@ -72,16 +91,44 @@ export const App: React.FC = () => {
     }
   };
 
+  const validateForm = (): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      toast.error('Please enter a valid email address');
+      return false;
+    }
+
+    if (password.length < 6) {
+      toast.error('Password must be at least 6 characters long');
+      return false;
+    }
+
+    if (authMode === 'REGISTER') {
+      if (name.trim().length < 2) {
+        toast.error('Full Name must be at least 2 characters');
+        return false;
+      }
+      if (orgName.trim().length < 2) {
+        toast.error('Organization Name must be at least 2 characters');
+        return false;
+      }
+    }
+
+    return true;
+  };
+
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateForm()) return;
+
     setIsSubmittingAuth(true);
     try {
       if (authMode === 'LOGIN') {
-        await login(email, password);
+        await login(email.trim(), password);
         toast.success('Signed in successfully');
       } else {
-        await register(name, email, password, orgName);
-        toast.success(`Organization "${orgName}" & Admin account registered!`);
+        await register(name.trim(), email.trim(), password, orgName.trim(), selectedRole);
+        toast.success(`Organization "${orgName}" created with ${selectedRole} role!`);
       }
     } catch (err: any) {
       toast.error(err.message || 'Authentication failed');
@@ -111,7 +158,7 @@ export const App: React.FC = () => {
           <div className="flex bg-surface-elevated p-1 rounded-xl border border-surface-border">
             <button
               type="button"
-              onClick={() => setAuthMode('LOGIN')}
+              onClick={handleSwitchToLogin}
               className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 authMode === 'LOGIN'
                   ? 'bg-indigo-600 text-white shadow-md'
@@ -122,7 +169,7 @@ export const App: React.FC = () => {
             </button>
             <button
               type="button"
-              onClick={() => setAuthMode('REGISTER')}
+              onClick={handleSwitchToRegister}
               className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 authMode === 'REGISTER'
                   ? 'bg-indigo-600 text-white shadow-md'
@@ -133,11 +180,11 @@ export const App: React.FC = () => {
             </button>
           </div>
 
-          {/* 1-Click Demo RBAC Role Switcher */}
+          {/* 1-Click Demo RBAC Role Switcher (Login Mode only) */}
           {authMode === 'LOGIN' && (
             <div className="space-y-2">
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                Select RBAC Test Role:
+                Select Demo RBAC Role:
               </span>
               <div className="grid grid-cols-3 gap-2">
                 {demoAccounts.map((acc) => {
@@ -165,7 +212,7 @@ export const App: React.FC = () => {
             </div>
           )}
 
-          {/* Form */}
+          {/* Auth Form */}
           <form onSubmit={handleAuthSubmit} className="space-y-4">
             {authMode === 'REGISTER' && (
               <>
@@ -196,6 +243,21 @@ export const App: React.FC = () => {
                     className="w-full px-3.5 py-2 rounded-xl bg-surface-elevated border border-surface-border text-white text-sm focus:outline-none focus:border-indigo-500"
                   />
                 </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                    Account Initial Role *
+                  </label>
+                  <select
+                    value={selectedRole}
+                    onChange={(e) => setSelectedRole(e.target.value as any)}
+                    className="w-full px-3.5 py-2 rounded-xl bg-surface-elevated border border-surface-border text-white text-sm focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="ADMIN">Administrator (Full Control)</option>
+                    <option value="OPERATOR">Operator (Ingest & Execute)</option>
+                    <option value="VIEWER">Viewer (Read-Only Auditor)</option>
+                  </select>
+                </div>
               </>
             )}
 
@@ -206,6 +268,7 @@ export const App: React.FC = () => {
               <input
                 type="email"
                 required
+                placeholder="name@company.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-3.5 py-2 rounded-xl bg-surface-elevated border border-surface-border text-white text-sm focus:outline-none focus:border-indigo-500"
@@ -216,13 +279,24 @@ export const App: React.FC = () => {
               <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
                 Password *
               </label>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-xl bg-surface-elevated border border-surface-border text-white text-sm focus:outline-none focus:border-indigo-500"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full pl-3.5 pr-10 py-2 rounded-xl bg-surface-elevated border border-surface-border text-white text-sm focus:outline-none focus:border-indigo-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1 cursor-pointer transition-colors"
+                  title={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
             <Button
@@ -232,7 +306,9 @@ export const App: React.FC = () => {
               className="w-full"
               isLoading={isSubmittingAuth}
             >
-              {authMode === 'LOGIN' ? `Sign In as ${email.split('@')[0]}` : 'Create Organization Workspace'}
+              {authMode === 'LOGIN'
+                ? `Sign In as ${email.split('@')[0] || 'User'}`
+                : 'Create Organization Workspace'}
             </Button>
           </form>
         </div>

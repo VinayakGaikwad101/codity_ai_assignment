@@ -36,7 +36,7 @@ export class AuthService {
           email: dto.email.toLowerCase().trim(),
           name: dto.name,
           passwordHash,
-          role: UserRole.ADMIN,
+          role: (dto as any).role || UserRole.ADMIN,
         },
       });
 
