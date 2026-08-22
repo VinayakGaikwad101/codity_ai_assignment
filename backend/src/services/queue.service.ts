@@ -48,17 +48,17 @@ export class QueueService {
     });
   }
 
-  static async listQueues(projectId: string, organizationId: string) {
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, organizationId },
-    });
+  static async listQueues(organizationId: string, projectId?: string) {
+    const whereClause: any = {
+      project: { organizationId },
+    };
 
-    if (!project) {
-      throw new AppError('Project not found in your organization', 404, 'PROJECT_NOT_FOUND');
+    if (projectId) {
+      whereClause.projectId = projectId;
     }
 
     const queues = await prisma.queue.findMany({
-      where: { projectId },
+      where: whereClause,
       include: {
         retryPolicy: true,
         _count: {

@@ -51,16 +51,17 @@ export class CronService {
     });
   }
 
-  static async listScheduledJobs(projectId: string, organizationId: string) {
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, organizationId },
-    });
-    if (!project) {
-      throw new AppError('Project not found in your organization', 404, 'PROJECT_NOT_FOUND');
+  static async listScheduledJobs(organizationId: string, projectId?: string) {
+    const whereClause: any = {
+      project: { organizationId },
+    };
+
+    if (projectId) {
+      whereClause.projectId = projectId;
     }
 
     return prisma.scheduledJob.findMany({
-      where: { projectId },
+      where: whereClause,
       include: {
         queue: { select: { id: true, name: true } },
         retryPolicy: { select: { id: true, name: true } },

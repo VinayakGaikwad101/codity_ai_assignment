@@ -57,12 +57,12 @@ export const errorHandler = (
   }
 
   // Handle unexpected internal errors
-  console.error('Unhandled Server Error:', err);
+  console.error('[Unhandled Server Error]:', err);
   const response: ApiResponse = {
     success: false,
     error: {
       code: 'INTERNAL_SERVER_ERROR',
-      message: 'An unexpected internal server error occurred',
+      message: err.message || 'An unexpected internal server error occurred',
     },
   };
   res.status(500).json(response);

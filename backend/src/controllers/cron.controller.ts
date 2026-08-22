@@ -28,12 +28,12 @@ export class CronController {
     try {
       const projectId = (req.query.projectId as string) || req.apiKey?.projectId;
       const organizationId = req.user?.organizationId || req.apiKey?.organizationId;
-      if (!projectId || !organizationId) {
-        res.status(400).json({ success: false, error: { code: 'BAD_REQUEST', message: 'projectId query parameter is required' } });
+      if (!organizationId) {
+        res.status(400).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Organization context missing' } });
         return;
       }
 
-      const scheduledJobs = await CronService.listScheduledJobs(projectId, organizationId);
+      const scheduledJobs = await CronService.listScheduledJobs(organizationId, projectId);
       const response: ApiResponse = {
         success: true,
         data: scheduledJobs,

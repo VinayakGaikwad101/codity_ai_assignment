@@ -323,18 +323,19 @@ export class JobService {
     });
   }
 
-  static async listDlq(projectId: string, organizationId: string, page = 1, limit = 20) {
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, organizationId },
-    });
-    if (!project) {
-      throw new AppError('Project not found in your organization', 404, 'PROJECT_NOT_FOUND');
+  static async listDlq(organizationId: string, projectId?: string, page = 1, limit = 20) {
+    const whereClause: any = {
+      project: { organizationId },
+    };
+
+    if (projectId) {
+      whereClause.projectId = projectId;
     }
 
     const skip = (page - 1) * limit;
     const [items, total] = await Promise.all([
       prisma.deadLetterQueueEntry.findMany({
-        where: { projectId },
+        where: whereClause,
         skip,
         take: limit,
         orderBy: { deadLetteredAt: 'desc' },
@@ -343,7 +344,7 @@ export class JobService {
           queue: { select: { id: true, name: true } },
         },
       }),
-      prisma.deadLetterQueueEntry.count({ where: { projectId } }),
+      prisma.deadLetterQueueEntry.count({ where: whereClause }),
     ]);
 
     const totalPages = Math.ceil(total / limit);

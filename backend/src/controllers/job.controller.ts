@@ -134,14 +134,14 @@ export class JobController {
     try {
       const projectId = (req.query.projectId as string) || req.apiKey?.projectId;
       const organizationId = req.user?.organizationId || req.apiKey?.organizationId;
-      if (!projectId || !organizationId) {
-        res.status(400).json({ success: false, error: { code: 'BAD_REQUEST', message: 'projectId is required' } });
+      if (!organizationId) {
+        res.status(400).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Organization context missing' } });
         return;
       }
 
       const page = parseInt((req.query.page as string) || '1', 10);
       const limit = parseInt((req.query.limit as string) || '20', 10);
-      const result = await JobService.listDlq(projectId, organizationId, page, limit);
+      const result = await JobService.listDlq(organizationId, projectId, page, limit);
 
       const response: ApiResponse = {
         success: true,

@@ -28,12 +28,12 @@ export class QueueController {
     try {
       const projectId = (req.query.projectId as string) || req.apiKey?.projectId;
       const organizationId = req.user?.organizationId || req.apiKey?.organizationId;
-      if (!projectId || !organizationId) {
-        res.status(400).json({ success: false, error: { code: 'BAD_REQUEST', message: 'projectId query parameter is required' } });
+      if (!organizationId) {
+        res.status(400).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Organization context missing' } });
         return;
       }
 
-      const queues = await QueueService.listQueues(projectId, organizationId);
+      const queues = await QueueService.listQueues(organizationId, projectId);
       const response: ApiResponse = {
         success: true,
         data: queues,
