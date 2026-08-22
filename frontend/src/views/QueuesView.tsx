@@ -362,7 +362,7 @@ export const QueuesView: React.FC = () => {
             <select
               value={form.retryPolicyId}
               onChange={(e) => setForm({ ...form, retryPolicyId: e.target.value })}
-              className="w-full px-3.5 py-2 rounded-lg bg-surface-elevated border border-surface-border text-white text-sm focus:outline-none focus:border-indigo-500"
+              className="w-full px-3.5 py-2 rounded-lg bg-surface-elevated border border-surface-border text-white text-xs focus:outline-none focus:border-indigo-500 truncate"
             >
               <option value="">Default (Exponential Backoff with Jitter)</option>
               {retryPolicies.map((p) => (
