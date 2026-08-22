@@ -6,7 +6,7 @@ services:
     container_name: djs_postgres
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_PASSWORD: postgres
       POSTGRES_DB: job_scheduler
     ports:
       - "5433:5432"

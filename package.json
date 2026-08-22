@@ -22,5 +22,8 @@
   },
   "devDependencies": {
     "typescript": "^5.4.5"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3"
   }
 }
