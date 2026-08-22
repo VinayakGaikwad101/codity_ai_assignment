@@ -171,4 +171,25 @@ export class JobController {
       next(error);
     }
   }
+
+  static async getDlqAiSummary(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+    try {
+      const id = req.params.id as string;
+      const organizationId = req.user?.organizationId || req.apiKey?.organizationId;
+      if (!organizationId) {
+        res.status(400).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Organization context missing' } });
+        return;
+      }
+
+      const { AiSummaryService } = await import('../services/ai-summary.service.js');
+      const summary = await AiSummaryService.generateFailureSummary(id, organizationId);
+      const response: ApiResponse = {
+        success: true,
+        data: summary,
+      };
+      res.status(200).json(response);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
