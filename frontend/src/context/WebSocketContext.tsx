@@ -32,22 +32,25 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
         ws.onopen = () => {
           setIsConnected(true);
-          console.log('[WebSocket UI] Connected to live event stream');
         };
 
         ws.onmessage = (event) => {
           try {
             const parsed = JSON.parse(event.data);
-            const eventName = parsed.event;
-            const listeners = listenersRef.current.get(eventName);
-            if (listeners) {
-              listeners.forEach((fn) => fn(parsed.data));
+            const eventName: string = parsed.event || '';
+
+            // 1. Trigger exact match listeners
+            const exactListeners = listenersRef.current.get(eventName);
+            if (exactListeners) {
+              exactListeners.forEach((fn) => fn(parsed.data));
             }
-            // Generic catch-all listener
-            const allListeners = listenersRef.current.get('*');
-            if (allListeners) {
-              allListeners.forEach((fn) => fn(parsed));
-            }
+
+            // 2. Trigger wildcard & prefix pattern listeners (e.g. "job:*" matches "job:completed")
+            listenersRef.current.forEach((callbacks, pattern) => {
+              if (pattern === '*' || (pattern.endsWith(':*') && eventName.startsWith(pattern.slice(0, -1)))) {
+                callbacks.forEach((fn) => fn(parsed.data));
+              }
+            });
           } catch (e) {
             console.error('[WebSocket UI Parse Error]:', e);
           }
@@ -55,7 +58,6 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
         ws.onclose = () => {
           setIsConnected(false);
-          // Auto-reconnect after 3 seconds
           reconnectTimeoutRef.current = setTimeout(connect, 3000);
         };
 

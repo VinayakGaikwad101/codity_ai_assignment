@@ -89,8 +89,20 @@ export const JobExplorerView: React.FC = () => {
   useEffect(() => {
     fetchJobs(false, true);
 
+    // Auto-update list in real time whenever worker completes/updates a job
     const unsubscribe = subscribe('job:*', () => fetchJobs(false, false));
-    return () => unsubscribe();
+    const unsubscribeAll = subscribe('*', () => fetchJobs(false, false));
+
+    // Live background refresh interval every 3s to catch worker updates instantly
+    const liveInterval = setInterval(() => {
+      fetchJobs(false, false);
+    }, 3000);
+
+    return () => {
+      unsubscribe();
+      unsubscribeAll();
+      clearInterval(liveInterval);
+    };
   }, [currentProject?.id, page, statusFilter]);
 
   const handleOpenDetail = async (jobId: string) => {
