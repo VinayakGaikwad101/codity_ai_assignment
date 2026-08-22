@@ -1,20 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { apiClient } from '../api/client.js';
-import { AlertOctagon, RotateCcw, RefreshCw } from 'lucide-react';
+import { AlertOctagon, RotateCcw, RefreshCw, X, FileText } from 'lucide-react';
 
 export const DlqView: React.FC = () => {
   const [dlqItems, setDlqItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [replayingId, setReplayingId] = useState<string | null>(null);
+  const [selectedEntry, setSelectedEntry] = useState<any | null>(null);
 
   const fetchDlq = async () => {
+    setLoading(true);
     try {
-      const projectsRes: any = await apiClient.get('/projects');
-      const projectId = projectsRes.data[0]?.id;
-      if (!projectId) return;
-
-      const res: any = await apiClient.get('/jobs/dlq', { params: { projectId } });
+      const res: any = await apiClient.get('/jobs/dlq');
       setDlqItems(res.data?.items || []);
     } catch (err) {
       console.error('Failed to fetch DLQ items:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -24,12 +26,16 @@ export const DlqView: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const handleReplay = async (id: string) => {
+  const handleReplay = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setReplayingId(id);
     try {
       await apiClient.post(`/jobs/dlq/${id}/replay`);
       await fetchDlq();
     } catch (err: any) {
       alert(`Error replaying DLQ job: ${err.message || 'Action failed'}`);
+    } finally {
+      setReplayingId(null);
     }
   };
 
@@ -42,10 +48,11 @@ export const DlqView: React.FC = () => {
         </div>
         <button
           onClick={fetchDlq}
-          className="flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-slate-850 border border-slate-800 text-xs font-medium text-slate-300 hover:bg-slate-800"
+          disabled={loading}
+          className="flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-slate-850 border border-slate-800 text-xs font-medium text-slate-300 hover:bg-slate-800 transition-colors"
         >
-          <RefreshCw className="w-3.5 h-3.5" />
-          <span>Refresh</span>
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-brand-400' : ''}`} />
+          <span>{loading ? 'Refreshing...' : 'Refresh'}</span>
         </button>
       </div>
 
@@ -77,7 +84,8 @@ export const DlqView: React.FC = () => {
                 dlqItems.map((item) => (
                   <tr
                     key={item.id}
-                    className="hover:bg-slate-800/50 transition-colors"
+                    onClick={() => setSelectedEntry(item)}
+                    className="hover:bg-slate-800/50 cursor-pointer transition-colors"
                   >
                     <td className="p-3">
                       <div className="font-medium text-slate-200">{item.job?.name || 'Unnamed Job'}</div>
@@ -93,14 +101,12 @@ export const DlqView: React.FC = () => {
                     </td>
                     <td className="p-3 text-right">
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleReplay(item.id);
-                        }}
-                        className="flex items-center space-x-1 px-2.5 py-1 rounded bg-brand-600/20 text-brand-400 border border-brand-500/30 hover:bg-brand-600/30 text-xs ml-auto"
+                        onClick={(e) => handleReplay(item.id, e)}
+                        disabled={replayingId === item.id}
+                        className="flex items-center space-x-1 px-2.5 py-1 rounded bg-brand-600/20 text-brand-400 border border-brand-500/30 hover:bg-brand-600/30 text-xs ml-auto transition-colors"
                       >
-                        <RotateCcw className="w-3 h-3" />
-                        <span>Replay</span>
+                        <RotateCcw className={`w-3 h-3 ${replayingId === item.id ? 'animate-spin' : ''}`} />
+                        <span>{replayingId === item.id ? 'Replaying...' : 'Replay'}</span>
                       </button>
                     </td>
                   </tr>
@@ -110,6 +116,66 @@ export const DlqView: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* Selected DLQ Inspection Drawer */}
+      {selectedEntry && (
+        <div className="fixed inset-y-0 right-0 w-full md:w-[500px] bg-slate-900 border-l border-slate-800 z-50 p-6 overflow-y-auto shadow-2xl flex flex-col justify-between">
+          <div className="space-y-6">
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="text-[10px] font-mono uppercase text-rose-400">Quarantined DLQ Record</span>
+                <h3 className="text-base font-bold text-slate-100 mt-0.5">{selectedEntry.job?.name}</h3>
+                <div className="font-mono text-xs text-slate-500 mt-0.5">{selectedEntry.jobId}</div>
+              </div>
+              <button
+                onClick={() => setSelectedEntry(null)}
+                className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-slate-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Failure Reason */}
+            <div className="p-3.5 rounded-xl bg-rose-950/20 border border-rose-500/30 space-y-1.5 text-xs">
+              <div className="font-semibold text-rose-400 flex items-center gap-1.5">
+                <AlertOctagon className="w-4 h-4 text-rose-400" />
+                Failure Reason Diagnostic
+              </div>
+              <div className="font-mono text-slate-200 break-words">{selectedEntry.failureReason}</div>
+            </div>
+
+            {/* Original Payload */}
+            <div>
+              <h4 className="text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5 text-brand-500" />
+                Original Job Payload Dump
+              </h4>
+              <pre className="p-3 rounded-lg bg-slate-950 border border-slate-800 text-xs font-mono text-slate-300 overflow-x-auto">
+                {JSON.stringify(selectedEntry.originalPayload, null, 2)}
+              </pre>
+            </div>
+          </div>
+
+          <div className="pt-6 border-t border-slate-800 flex space-x-3">
+            <button
+              onClick={(e) => {
+                handleReplay(selectedEntry.id, e);
+                setSelectedEntry(null);
+              }}
+              className="flex-1 flex items-center justify-center space-x-1.5 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Replay & Re-enqueue Now</span>
+            </button>
+            <button
+              onClick={() => setSelectedEntry(null)}
+              className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
