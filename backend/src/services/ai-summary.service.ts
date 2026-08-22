@@ -36,9 +36,11 @@ export class AiSummaryService {
     }
 
     try {
+      const modelName = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite';
+
       // Initialize LangChain Google Generative AI model
       const model = new ChatGoogleGenerativeAI({
-        model: 'gemini-1.5-flash-latest',
+        model: modelName,
         apiKey: apiKey.trim(),
         temperature: 0.2,
       });
