@@ -1,7 +1,10 @@
 import axios from 'axios';
 
+const isDev = typeof window !== 'undefined' && window.location.port === '3000';
+const baseURL = isDev ? 'http://localhost:4000/api/v1' : '/api/v1';
+
 export const apiClient = axios.create({
-  baseURL: '/api/v1',
+  baseURL,
   headers: {
     'Content-Type': 'application/json',
   },

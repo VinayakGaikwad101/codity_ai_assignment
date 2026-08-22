@@ -15,10 +15,9 @@ export const App: React.FC = () => {
   const [currentTab, setCurrentTab] = useState<NavTab>('overview');
   const [user, setUser] = useState<any>(null);
   const [dlqCount, setDlqCount] = useState<number>(0);
+  const [authReady, setAuthReady] = useState(false);
 
-  const { isConnected } = useWebSocket((_event) => {
-    // Refresh stats / notifications on live socket event
-  });
+  const { isConnected } = useWebSocket();
 
   // Auto-login default seeded user if not logged in
   useEffect(() => {
@@ -34,6 +33,8 @@ export const App: React.FC = () => {
           setUser(res.data.user);
         } catch (err) {
           console.error('Auto-login error:', err);
+        } finally {
+          setAuthReady(true);
         }
       } else {
         try {
@@ -41,6 +42,17 @@ export const App: React.FC = () => {
           setUser(res.data.user);
         } catch {
           localStorage.removeItem('auth_token');
+          // Retry login
+          try {
+            const res: any = await apiClient.post('/auth/login', {
+              email: 'admin@acme.com',
+              password: 'Admin@12345',
+            });
+            localStorage.setItem('auth_token', res.data.token);
+            setUser(res.data.user);
+          } catch {}
+        } finally {
+          setAuthReady(true);
         }
       }
     };
@@ -50,6 +62,8 @@ export const App: React.FC = () => {
 
   // Fetch DLQ count for sidebar badge
   useEffect(() => {
+    if (!authReady) return;
+
     const fetchDlqCount = async () => {
       try {
         const projectsRes: any = await apiClient.get('/projects');
@@ -65,9 +79,13 @@ export const App: React.FC = () => {
     fetchDlqCount();
     const interval = setInterval(fetchDlqCount, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [authReady]);
 
   const renderContent = () => {
+    if (!authReady) {
+      return <div className="p-12 text-center text-slate-500">Connecting to platform control plane...</div>;
+    }
+
     switch (currentTab) {
       case 'overview':
         return <OverviewView />;
@@ -93,7 +111,7 @@ export const App: React.FC = () => {
       <Navbar
         isConnected={isConnected}
         userRole={user?.role || 'ADMIN'}
-        userName={user?.name || 'Vinayak Gaikwad'}
+        userName={user?.name || 'Vinayak Gaikwad (Admin)'}
       />
 
       <div className="flex-1 flex overflow-hidden">
