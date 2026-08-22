@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext.js';
 import { useWebSocket } from '../context/WebSocketContext.js';
 import { apiRequest } from '../api/client.js';
@@ -17,7 +17,8 @@ import {
   Terminal,
   Activity,
   Layers,
-  Sparkles,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
@@ -29,7 +30,9 @@ export const JobExplorerView: React.FC = () => {
   const [jobs, setJobs] = useState<any[]>([]);
   const [queues, setQueues] = useState<any[]>([]);
   const [totalJobs, setTotalJobs] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
+  const [limit] = useState(10);
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -54,21 +57,26 @@ export const JobExplorerView: React.FC = () => {
     idempotencyKey: '',
   });
 
-  const fetchJobs = async (showToast = false) => {
+  const isInitialLoad = useRef(true);
+
+  const fetchJobs = async (showToast = false, showFullLoader = false) => {
     if (!currentProject) return;
+    if (showFullLoader) setIsLoading(true);
+
     try {
-      let url = `/jobs?projectId=${currentProject.id}&page=${page}&limit=15`;
+      let url = `/jobs?projectId=${currentProject.id}&page=${page}&limit=${limit}`;
       if (statusFilter !== 'ALL') url += `&status=${statusFilter}`;
       if (searchQuery.trim()) url += `&search=${encodeURIComponent(searchQuery.trim())}`;
 
       const [jobsRes, queuesRes] = await Promise.all([
-        apiRequest<{ items: any[]; total: number }>(url),
+        apiRequest<{ items: any[]; total: number; totalPages: number }>(url),
         apiRequest<any[]>(`/queues?projectId=${currentProject.id}`),
       ]);
 
-      setJobs(jobsRes.items);
-      setTotalJobs(jobsRes.total);
-      setQueues(queuesRes);
+      setJobs(jobsRes.items || []);
+      setTotalJobs(jobsRes.total || 0);
+      setTotalPages(jobsRes.totalPages || 1);
+      setQueues(queuesRes || []);
 
       if (queuesRes.length > 0 && !ingestForm.queueId) {
         setIngestForm((prev) => ({ ...prev, queueId: queuesRes[0].id }));
@@ -80,14 +88,15 @@ export const JobExplorerView: React.FC = () => {
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
+      isInitialLoad.current = false;
     }
   };
 
   useEffect(() => {
-    setIsLoading(true);
-    fetchJobs();
+    fetchJobs(false, true);
 
-    const unsubscribe = subscribe('job:*', () => fetchJobs(false));
+    // Auto-update list in real time whenever worker completes/updates a job
+    const unsubscribe = subscribe('job:*', () => fetchJobs(false, false));
     return () => unsubscribe();
   }, [currentProject?.id, page, statusFilter]);
 
@@ -167,7 +176,7 @@ export const JobExplorerView: React.FC = () => {
         payloadText: '{\n  "amount": 500,\n  "currency": "USD"\n}',
         idempotencyKey: '',
       });
-      await fetchJobs();
+      await fetchJobs(false, true);
     } catch (err: any) {
       toast.error(err.message || 'Failed to ingest job');
     } finally {
@@ -202,7 +211,7 @@ export const JobExplorerView: React.FC = () => {
             size="sm"
             onClick={() => {
               setIsRefreshing(true);
-              fetchJobs(true);
+              fetchJobs(true, true);
             }}
             isLoading={isRefreshing}
             leftIcon={<RefreshCw className="w-4 h-4" />}
@@ -253,7 +262,7 @@ export const JobExplorerView: React.FC = () => {
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 setPage(1);
-                fetchJobs();
+                fetchJobs(false, true);
               }
             }}
             className="w-full pl-9 pr-4 py-1.5 rounded-lg bg-surface-elevated border border-surface-border text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
@@ -262,7 +271,7 @@ export const JobExplorerView: React.FC = () => {
       </div>
 
       {/* Jobs Table */}
-      <div className="bg-surface border border-surface-border rounded-xl overflow-hidden shadow-xl">
+      <div className="bg-surface border border-surface-border rounded-xl overflow-hidden shadow-xl min-h-[380px] flex flex-col justify-between">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-surface-elevated/80 text-slate-300 border-b border-surface-border text-xs uppercase tracking-wider">
@@ -281,8 +290,8 @@ export const JobExplorerView: React.FC = () => {
                 Array.from({ length: 6 }).map((_, i) => <TableRowSkeleton key={i} cols={7} />)
               ) : jobs.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-slate-400">
-                    No jobs match the current filters.
+                  <td colSpan={7} className="py-16 text-center text-slate-400">
+                    No jobs match the current filter <span className="text-indigo-400 font-semibold">&quot;{statusFilter}&quot;</span>.
                   </td>
                 </tr>
               ) : (
@@ -358,6 +367,41 @@ export const JobExplorerView: React.FC = () => {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Pagination Footer */}
+        <div className="p-4 border-t border-surface-border bg-surface-elevated/40 flex items-center justify-between text-xs text-slate-400">
+          <div>
+            Showing <strong className="text-white">{jobs.length > 0 ? (page - 1) * limit + 1 : 0}</strong> to{' '}
+            <strong className="text-white">{Math.min(page * limit, totalJobs)}</strong> of{' '}
+            <strong className="text-white">{totalJobs}</strong> jobs
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1 || isLoading}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              leftIcon={<ChevronLeft className="w-3.5 h-3.5" />}
+            >
+              Previous
+            </Button>
+
+            <span className="px-3 py-1 bg-surface border border-surface-border rounded-lg text-xs font-mono font-bold text-white">
+              {page} / {totalPages}
+            </span>
+
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages || isLoading}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              rightIcon={<ChevronRight className="w-3.5 h-3.5" />}
+            >
+              Next
+            </Button>
+          </div>
         </div>
       </div>
 

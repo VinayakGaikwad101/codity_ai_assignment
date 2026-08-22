@@ -12,8 +12,7 @@ import {
   Trash2,
   Play,
   Pause,
-  Calendar,
-  Layers,
+  AlertTriangle,
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { toast } from 'sonner';
@@ -27,7 +26,7 @@ export const CronView: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
-  // Modal State
+  // Create Modal State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [form, setForm] = useState({
@@ -38,6 +37,10 @@ export const CronView: React.FC = () => {
     timezone: 'UTC',
     payloadText: '{\n  "checkDatabase": true\n}',
   });
+
+  // Delete Confirmation Modal State (No browser alert)
+  const [scheduleToDelete, setScheduleToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchSchedules = async (showToast = false) => {
     if (!currentProject) return;
@@ -85,14 +88,18 @@ export const CronView: React.FC = () => {
     }
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
+  const handleConfirmDelete = async () => {
+    if (!scheduleToDelete) return;
+    setIsDeleting(true);
     try {
-      await apiRequest(`/scheduled-jobs/${id}`, { method: 'DELETE' });
-      toast.success('Schedule deleted');
+      await apiRequest(`/scheduled-jobs/${scheduleToDelete.id}`, { method: 'DELETE' });
+      toast.success(`Schedule "${scheduleToDelete.name}" deleted`);
+      setScheduleToDelete(null);
       await fetchSchedules();
     } catch (err: any) {
       toast.error(err.message || 'Failed to delete schedule');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -251,8 +258,8 @@ export const CronView: React.FC = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleDelete(sched.id, sched.name)}
-                          className="hover:text-rose-400"
+                          onClick={() => setScheduleToDelete({ id: sched.id, name: sched.name })}
+                          className="hover:text-rose-400 cursor-pointer"
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -265,6 +272,39 @@ export const CronView: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={!!scheduleToDelete}
+        onClose={() => setScheduleToDelete(null)}
+        title="Delete Scheduled Job"
+        maxWidth="sm"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-300 text-xs">
+            <AlertTriangle className="w-5 h-5 text-rose-400 flex-shrink-0" />
+            <span>Are you sure you want to permanently delete schedule &quot;{scheduleToDelete?.name}&quot;?</span>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-surface-border">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setScheduleToDelete(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={handleConfirmDelete}
+              isLoading={isDeleting}
+            >
+              Delete Schedule
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Create Cron Schedule Modal */}
       <Modal

@@ -7,7 +7,6 @@ import {
   Clock,
   AlertTriangle,
   Key,
-  Shield,
   Zap,
 } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -44,7 +43,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
         <div>
           <h1 className="text-sm font-bold text-white tracking-tight">Distributed Scheduler</h1>
-          <span className="text-[11px] text-slate-400 font-mono">v1.0.0 (SKIP LOCKED)</span>
+          <span className="text-[11px] text-slate-400 font-mono">v1.0.0 Control Plane</span>
         </div>
       </div>
 
@@ -84,17 +83,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           );
         })}
-      </div>
-
-      {/* Engine Architecture Indicator */}
-      <div className="p-4 m-3 bg-surface-elevated/50 border border-surface-border rounded-xl">
-        <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
-          <Shield className="w-3.5 h-3.5 text-indigo-400" />
-          <span>Atomic Engine</span>
-        </div>
-        <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
-          PostgreSQL <code className="text-indigo-300 bg-indigo-950/60 px-1 py-0.5 rounded">SKIP LOCKED</code> active with multi-worker safety
-        </p>
       </div>
     </aside>
   );

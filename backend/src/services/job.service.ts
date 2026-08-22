@@ -333,6 +333,7 @@ export class JobService {
   static async listDlq(organizationId: string, projectId?: string, page = 1, limit = 20) {
     const whereClause: any = {
       project: { organizationId },
+      replayedAt: null,
     };
 
     if (projectId) {
@@ -354,7 +355,7 @@ export class JobService {
       prisma.deadLetterQueueEntry.count({ where: whereClause }),
     ]);
 
-    const totalPages = Math.ceil(total / limit);
+    const totalPages = Math.ceil(total / limit) || 1;
 
     return {
       items,

@@ -11,7 +11,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <AuthProvider>
       <WebSocketProvider>
         <App />
-        <Toaster richColors position="top-right" theme="dark" closeButton />
+        <Toaster richColors position="top-right" theme="dark" closeButton={false} />
       </WebSocketProvider>
     </AuthProvider>
   </React.StrictMode>

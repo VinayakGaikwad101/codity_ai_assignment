@@ -10,15 +10,17 @@ import {
   Copy,
   Trash2,
   RefreshCw,
-  Shield,
-  Check,
-  Eye,
+  ChevronLeft,
+  ChevronRight,
+  AlertTriangle,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
 export const ApiKeysView: React.FC = () => {
   const [keys, setKeys] = useState<any[]>([]);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
@@ -29,10 +31,14 @@ export const ApiKeysView: React.FC = () => {
   const [expiresInDays, setExpiresInDays] = useState(90);
   const [createdKey, setCreatedKey] = useState<string | null>(null);
 
+  // Delete / Revoke Confirmation Modal State
+  const [keyToRevoke, setKeyToRevoke] = useState<{ id: string; name: string } | null>(null);
+  const [isRevoking, setIsRevoking] = useState(false);
+
   const fetchKeys = async (showToast = false) => {
     try {
       const data = await apiRequest<any[]>('/auth/api-keys');
-      setKeys(data);
+      setKeys(data || []);
       if (showToast) toast.success('API keys updated');
     } catch (err: any) {
       toast.error(err.message || 'Failed to fetch API keys');
@@ -75,16 +81,23 @@ export const ApiKeysView: React.FC = () => {
     toast.success('API key copied to clipboard!');
   };
 
-  const handleRevoke = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to revoke API key "${name}"?`)) return;
+  const handleConfirmRevoke = async () => {
+    if (!keyToRevoke) return;
+    setIsRevoking(true);
     try {
-      await apiRequest(`/auth/api-keys/${id}`, { method: 'DELETE' });
-      toast.success('API key revoked');
+      await apiRequest(`/auth/api-keys/${keyToRevoke.id}`, { method: 'DELETE' });
+      toast.success(`API key "${keyToRevoke.name}" revoked`);
+      setKeyToRevoke(null);
       await fetchKeys();
     } catch (err: any) {
       toast.error(err.message || 'Failed to revoke API key');
+    } finally {
+      setIsRevoking(false);
     }
   };
+
+  const totalPages = Math.ceil(keys.length / limit) || 1;
+  const paginatedKeys = keys.slice((page - 1) * limit, page * limit);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -125,7 +138,7 @@ export const ApiKeysView: React.FC = () => {
       </div>
 
       {/* API Keys Table */}
-      <div className="bg-surface border border-surface-border rounded-xl overflow-hidden shadow-xl">
+      <div className="bg-surface border border-surface-border rounded-xl overflow-hidden shadow-xl min-h-[380px] flex flex-col justify-between">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-surface-elevated/80 text-slate-300 border-b border-surface-border text-xs uppercase tracking-wider">
@@ -141,14 +154,14 @@ export const ApiKeysView: React.FC = () => {
             <tbody className="divide-y divide-surface-border/50">
               {isLoading ? (
                 Array.from({ length: 3 }).map((_, i) => <TableRowSkeleton key={i} cols={6} />)
-              ) : keys.length === 0 ? (
+              ) : paginatedKeys.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-400">
+                  <td colSpan={6} className="py-16 text-center text-slate-400">
                     No machine API keys generated yet. Click &quot;Generate API Key&quot; to issue a new key!
                   </td>
                 </tr>
               ) : (
-                keys.map((key) => (
+                paginatedKeys.map((key) => (
                   <tr key={key.id} className="hover:bg-surface-elevated/40 transition-colors">
                     <td className="py-4 px-4">
                       <div className="font-bold text-white flex items-center gap-2">
@@ -175,8 +188,8 @@ export const ApiKeysView: React.FC = () => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleRevoke(key.id, key.name)}
-                        className="hover:text-rose-400"
+                        onClick={() => setKeyToRevoke({ id: key.id, name: key.name })}
+                        className="hover:text-rose-400 cursor-pointer"
                         title="Revoke API Key"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -188,7 +201,75 @@ export const ApiKeysView: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Footer */}
+        <div className="p-4 border-t border-surface-border bg-surface-elevated/40 flex items-center justify-between text-xs text-slate-400">
+          <div>
+            Showing <strong className="text-white">{keys.length > 0 ? (page - 1) * limit + 1 : 0}</strong> to{' '}
+            <strong className="text-white">{Math.min(page * limit, keys.length)}</strong> of{' '}
+            <strong className="text-white">{keys.length}</strong> keys
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1 || isLoading}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              leftIcon={<ChevronLeft className="w-3.5 h-3.5" />}
+            >
+              Previous
+            </Button>
+
+            <span className="px-3 py-1 bg-surface border border-surface-border rounded-lg text-xs font-mono font-bold text-white">
+              {page} / {totalPages}
+            </span>
+
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages || isLoading}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              rightIcon={<ChevronRight className="w-3.5 h-3.5" />}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
       </div>
+
+      {/* Revoke Confirmation Modal */}
+      <Modal
+        isOpen={!!keyToRevoke}
+        onClose={() => setKeyToRevoke(null)}
+        title="Revoke Machine API Key"
+        maxWidth="sm"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-300 text-xs">
+            <AlertTriangle className="w-5 h-5 text-rose-400 flex-shrink-0" />
+            <span>Are you sure you want to revoke API key &quot;{keyToRevoke?.name}&quot;? Any background worker using this key will be unauthorized.</span>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-surface-border">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setKeyToRevoke(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={handleConfirmRevoke}
+              isLoading={isRevoking}
+            >
+              Revoke Key
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Generate Key Modal */}
       <Modal
