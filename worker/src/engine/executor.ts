@@ -9,9 +9,14 @@ export class Executor {
    */
   static async execute(job: ClaimedJobRecord, workerId: string): Promise<void> {
     const startTime = Date.now();
-    const currentAttempt = job.retryCount + 1;
 
-    // 1. Transition Job to RUNNING and create JobExecution record
+    // 1. Calculate monotonic attempt number based on existing execution records in database
+    const existingExecutionsCount = await prisma.jobExecution.count({
+      where: { jobId: job.id },
+    });
+    const currentAttempt = existingExecutionsCount + 1;
+
+    // 2. Transition Job to RUNNING and create JobExecution record
     const execution = await prisma.$transaction(async (tx) => {
       await tx.job.update({
         where: { id: job.id },
@@ -72,7 +77,7 @@ export class Executor {
       const durationMs = Date.now() - startTime;
       await log('INFO', `Execution succeeded in ${durationMs}ms`);
 
-      // 2. Mark Job & Execution as SUCCESS / COMPLETED
+      // 3. Mark Job & Execution as SUCCESS / COMPLETED
       await prisma.$transaction(async (tx) => {
         await tx.jobExecution.update({
           where: { id: execution.id },
@@ -93,7 +98,7 @@ export class Executor {
         });
       });
 
-      // 3. Resolve DAG dependencies: check if any child jobs can now be unlocked to QUEUED
+      // 4. Resolve DAG dependencies: check if any child jobs can now be unlocked to QUEUED
       await this.resolveChildDependencies(job.id);
     } catch (error: any) {
       const durationMs = Date.now() - startTime;
@@ -114,7 +119,7 @@ export class Executor {
         },
       });
 
-      // 4. Handle Retry Policy / Dead Letter Queue Routing
+      // 5. Handle Retry Policy / Dead Letter Queue Routing
       await this.handleFailure(job, currentAttempt, errorMessage, errorStack);
     }
   }
@@ -181,7 +186,7 @@ export class Executor {
           data: {
             jobId: job.id,
             level: LogLevel.ERROR,
-            message: `Job exhausted all ${job.maxRetries} retries and has been quarantined to Dead Letter Queue (DLQ)`,
+            message: `Job exhausted all retries (total attempts: ${currentAttempt}) and has been quarantined to Dead Letter Queue (DLQ)`,
           },
         });
       });
