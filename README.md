@@ -30,6 +30,7 @@ An enterprise-grade, high-concurrency distributed job scheduling platform built 
 git clone https://github.com/VinayakGaikwad101/codity_ai_assignment.git
 cd codity_ai_assignment
 npm install
+npm run build --workspace=shared
 ```
 
 ---
@@ -69,6 +70,8 @@ npm run prisma:seed --workspace=backend
 ---
 
 ## Running the Platform (3 Terminals)
+
+> **Important**: Run all commands from the root `codity_ai_assignment/` directory.
 
 ### Terminal 1: Backend REST API & WebSocket Server
 ```bash
