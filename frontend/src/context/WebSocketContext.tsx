@@ -26,10 +26,17 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     const connect = () => {
       try {
-        const host = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-          ? window.location.hostname
-          : 'localhost';
-        const wsUrl = `ws://${host}:4000/ws?token=${token}`;
+        let wsUrl: string;
+        if (typeof window !== 'undefined') {
+          if (window.location.port === '3000') {
+            wsUrl = `ws://${window.location.hostname}:4000/ws?token=${token}`;
+          } else {
+            const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            wsUrl = `${proto}//${window.location.host}/ws?token=${token}`;
+          }
+        } else {
+          wsUrl = `ws://localhost:4000/ws?token=${token}`;
+        }
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
 
