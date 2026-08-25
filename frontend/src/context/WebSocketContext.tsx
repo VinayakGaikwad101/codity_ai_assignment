@@ -26,7 +26,10 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     const connect = () => {
       try {
-        const wsUrl = `ws://localhost:4000/ws?token=${token}`;
+        const host = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+          ? window.location.hostname
+          : 'localhost';
+        const wsUrl = `ws://${host}:4000/ws?token=${token}`;
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
 

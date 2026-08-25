@@ -1,4 +1,7 @@
-const BASE_URL = 'http://localhost:4000/api/v1';
+const API_HOST = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+  ? `http://${window.location.hostname}:4000`
+  : 'http://localhost:4000';
+const BASE_URL = `${API_HOST}/api/v1`;
 
 export class ApiError extends Error {
   public code: string;
