@@ -17,14 +17,24 @@ export function createApp(): Express {
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true }));
 
-  // Health Check Endpoint
-  app.get('/health', (_req, res) => {
+  // Health & Root Status Endpoints
+  const statusPayload = (_req: express.Request, res: express.Response) => {
     res.status(200).json({
-      status: 'healthy',
-      timestamp: new Date().toISOString(),
-      service: 'distributed-job-scheduler-api',
+      success: true,
+      data: {
+        service: 'Distributed Job Scheduler Platform API',
+        version: '1.0.0',
+        status: 'healthy',
+        environment: process.env.NODE_ENV || 'development',
+        timestamp: new Date().toISOString(),
+        documentation: 'https://github.com/VinayakGaikwad101/codity_ai_assignment#readme',
+      },
     });
-  });
+  };
+
+  app.get('/health', statusPayload);
+  app.get('/api/v1', statusPayload);
+  app.get('/api/v1/health', statusPayload);
 
   // API Routes
   app.use('/api/v1/auth', authRoutes);
